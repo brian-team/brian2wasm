@@ -22,6 +22,8 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
     def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug):
         compiler_flags = '-Ibrianlib/randomkit'
         linker_flags = '-Lbrianlib/randomkit'
+        preloads = ' '.join(f'--preload-file static_arrays/{static_array}'
+                            for static_array in sorted(self.static_arrays.keys()))
         templater = self.code_object_class().templater.derive('brian2wasm')
         rm_cmd = 'rm $(OBJS) $(PROGRAM) $(DEPS)'
         if debug:
@@ -42,6 +44,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             compiler_debug_flags=compiler_debug_flags,
             linker_debug_flags=linker_debug_flags,
             linker_flags=linker_flags,
+            preloads=preloads,
             rm_cmd=rm_cmd)
         writer.write('makefile', makefile_tmp)
    

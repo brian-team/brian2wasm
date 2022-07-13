@@ -13,7 +13,7 @@ all: $(PROGRAM)
 .PHONY: all clean
 
 $(PROGRAM): $(OBJS) $(DEPS) makefile
-	emcc $(OBJS) -o $(PROGRAM) $(LFLAGS)
+	emcc $(OBJS) -o $(PROGRAM) $(LFLAGS) {{ preloads }}
 
 clean:
 	{{ rm_cmd }}
