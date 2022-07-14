@@ -2,6 +2,7 @@
 Module implementing the WASM/JS "standalone" device.
 """
 import os
+import shutil
 import subprocess
 import time
 
@@ -41,7 +42,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         source_files = ' '.join(sorted(writer.source_files))
         source_files = source_files.replace('brianlib/randomkit/randomkit.c', 
                                             'brianlib/randomkit/randomkit.cpp')
-        
+        preamble_file = os.path.join(os.path.dirname(__file__), 'templates', 'pre.js')
         makefile_tmp = self.code_object_class().templater.makefile(None, None,
             source_files=source_files,
             header_files=' '.join(sorted(writer.header_files)),
@@ -50,6 +51,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             linker_debug_flags=linker_debug_flags,
             linker_flags=linker_flags,
             preloads=preloads,
+            preamble_file=preamble_file,
             rm_cmd=rm_cmd)
         writer.write('makefile', makefile_tmp)
    
