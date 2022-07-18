@@ -152,7 +152,7 @@ void _write_arrays()
 		outfile_{{varname}}.write(reinterpret_cast<char*>({{varname}}), {{var.size}}*sizeof({{get_array_name(var)}}[0]));
 		outfile_{{varname}}.close();
 		EM_ASM(
-			add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', '{{get_array_filename(var) | replace('\\', '\\\\')}}');
+			add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', '{{get_array_filename(var) | replace('\\', '\\\\')}}', {{var.size}});
 		);
 	} else
 	{
@@ -171,8 +171,8 @@ void _write_arrays()
 			outfile_{{varname}}.write(reinterpret_cast<char*>(&{{varname}}[0]), {{varname}}.size()*sizeof({{varname}}[0]));
 		    outfile_{{varname}}.close();
 			EM_ASM(
-				add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', '{{get_array_filename(var) | replace('\\', '\\\\')}}');
-			);
+				add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', '{{get_array_filename(var) | replace('\\', '\\\\')}}', $0);
+			, {{varname}}.size());
 		}
 	} else
 	{
@@ -193,6 +193,9 @@ void _write_arrays()
             }
         }
         outfile_{{varname}}.close();
+		EM_ASM(
+				add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', '{{get_array_filename(var) | replace('\\', '\\\\')}}', $0, $1);
+		, {{varname}}.n, {{varname}}.m);
 	} else
 	{
 		std::cout << "Error writing output file for {{varname}}." << endl;
