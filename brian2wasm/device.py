@@ -54,18 +54,20 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             preamble_file=preamble_file,
             rm_cmd=rm_cmd)
         writer.write('makefile', makefile_tmp)
-   
+        
 
     def copy_source_files(self, writer, directory):
         super(WASMStandaloneDevice, self).copy_source_files(writer, directory)
         # Rename randomkit.c so that emcc compiles it to wasm
         os.rename(os.path.join(directory, 'brianlib', 'randomkit', 'randomkit.c'),
                   os.path.join(directory, 'brianlib', 'randomkit', 'randomkit.cpp'))
+        template_dir = os.path.join(os.path.dirname(__file__), 'templates')
+        shutil.copy(os.path.join(template_dir, 'main.html'), directory)
 
-    def run(self, directory, with_output, run_args):
+    def run(self, directory, results_directory, with_output, run_args):
         with in_directory(directory):
             if not with_output:
-                stdout = open('results/stdout.txt', 'w')
+                stdout = open(results_directory + 'stdout.txt', 'w')
             else:
                 stdout = None
             run_cmd = ['emrun', 'main.html']

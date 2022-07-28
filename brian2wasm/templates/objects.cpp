@@ -14,6 +14,7 @@
 
 namespace brian {
 
+std::string results_dir = "results/";  // can be overwritten by --results_dir command line arg
 std::vector< rk_state* > _mersenne_twister_states;
 
 //////////////// networks /////////////////
@@ -21,6 +22,82 @@ std::vector< rk_state* > _mersenne_twister_states;
 Network {{net.name}};
 {% endfor %}
 
+//////////////// array meta data //////////
+std::map<std::string, std::tuple<size_t, std::string, void*>> array_meta_data;
+
+//////////////// set arrays by name ///////
+void set_variable_by_name(std::string owner_variable, std::string s_value) {
+	std::tuple<size_t, std::string, void*> meta_data;
+	try {
+		meta_data  = array_meta_data.at(owner_variable);
+	} catch (const std::out_of_range& oor) {
+    	std::cerr << "Did not find variable '" << owner_variable << "'" << std::endl;
+  	}
+	const size_t var_size = std::get<0>(meta_data);
+	size_t data_size;
+	const std::string var_type = std::get<1>(meta_data);
+	void* var_pointer = std::get<2>(meta_data);
+
+	if (var_type == "double")
+	{
+		data_size = var_size * sizeof(double);
+	}
+	else if (var_type == "float")
+	{
+		data_size = var_size * sizeof(float);
+	}
+	else if (var_type == "int64_t")
+	{
+		data_size = var_size * sizeof(int64_t);
+	}
+	else if (var_type == "int32_t")
+	{
+		data_size = var_size * sizeof(int32_t);
+	}
+
+	if (s_value[0] == '-' || (s_value[0] >= '0' && s_value[0] <= '9'))
+	{
+		if (var_type == "double")
+		{
+			const double d_value = atof(s_value.c_str());
+			for (size_t i = 0; i < var_size; i++)
+			{
+				((double *)var_pointer)[i] = d_value;
+			}
+		}
+		else if (var_type == "float")
+		{
+			const float f_value = atof(s_value.c_str());
+			for (size_t i = 0; i < var_size; i++)
+				((float *)var_pointer)[i] = f_value;
+		}
+		else if (var_type == "int32_t")
+		{
+			const int32_t i32_value = atoi(s_value.c_str());
+			for (size_t i = 0; i < var_size; i++)
+				((int32_t *)var_pointer)[i] = i32_value;
+		}
+		else if (var_type == "int64_t")
+		{
+			const int64_t i64_value = atol(s_value.c_str());
+			for (size_t i = 0; i < var_size; i++)
+				((int64_t *)var_pointer)[i] = i64_value;
+		}
+	}
+	else
+	{ // file name
+		ifstream f;
+		f.open(s_value, ios::in | ios::binary);
+		if (f.is_open())
+		{
+			f.read(reinterpret_cast<char *>(var_pointer), data_size);
+		}
+		else
+		{
+			std::cerr << "Could not read '" << s_value << "'" << std::endl;
+		}
+	}
+}
 //////////////// arrays ///////////////////
 {% for var, varname in array_specs | dictsort(by='value') %}
 {% if not var in dynamic_array_specs %}
@@ -108,6 +185,14 @@ void _init_arrays()
 	{% endif %}
 	{% endfor %}
 
+	array_meta_data = {
+	{% for var, varname in array_specs | dictsort(by='value') %}
+		{% if not var in dynamic_array_specs and not var in dynamic_array_2d_specs and not var.read_only %}
+		{"{{var.owner.name}}.{{var.name}}", { {{var.size}}, "{{c_data_type(var.dtype)}}", {{varname}} } },
+		{% endif %}
+	{% endfor %}
+	};
+
 	// Random number generator states
 	for (int i=0; i<{{openmp_pragma('get_num_threads')}}; i++)
 	    _mersenne_twister_states.push_back(new rk_state());
@@ -138,22 +223,24 @@ void _write_arrays()
 {
 	using namespace brian;
 
-    EM_ASM(
-        // Make the results directory and mount it
-        FS.mkdir("results");
-    );
+    EM_ASM({
+        // Make the results directory if it doesn't exist
+		if (!FS.analyzePath(UTF8ToString($0)).exists) {
+        	FS.mkdir(UTF8ToString($0));
+		}
+    }, results_dir.c_str());
 
 	{% for var, varname in array_specs | dictsort(by='value') %}
 	{% if not (var in dynamic_array_specs or var in dynamic_array_2d_specs) %}
 	ofstream outfile_{{varname}};
-	outfile_{{varname}}.open("{{get_array_filename(var) | replace('\\', '\\\\')}}", ios::binary | ios::out);
+	outfile_{{varname}}.open(results_dir + "{{get_array_filename(var)}}", ios::binary | ios::out);
 	if(outfile_{{varname}}.is_open())
 	{
 		outfile_{{varname}}.write(reinterpret_cast<char*>({{varname}}), {{var.size}}*sizeof({{get_array_name(var)}}[0]));
 		outfile_{{varname}}.close();
-		EM_ASM(
-			add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', '{{get_array_filename(var) | replace('\\', '\\\\')}}', {{var.size}});
-		);
+		EM_ASM({
+			add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', UTF8ToString($0) + '{{get_array_filename(var)}}', {{var.size}});
+		}, results_dir.c_str());
 	} else
 	{
 		std::cout << "Error writing output file for {{varname}}." << endl;
@@ -163,16 +250,16 @@ void _write_arrays()
 
 	{% for var, varname in dynamic_array_specs | dictsort(by='value') %}
 	ofstream outfile_{{varname}};
-	outfile_{{varname}}.open("{{get_array_filename(var) | replace('\\', '\\\\')}}", ios::binary | ios::out);
+	outfile_{{varname}}.open(results_dir + "{{get_array_filename(var)}}", ios::binary | ios::out);
 	if(outfile_{{varname}}.is_open())
 	{
         if (! {{varname}}.empty() )
         {
 			outfile_{{varname}}.write(reinterpret_cast<char*>(&{{varname}}[0]), {{varname}}.size()*sizeof({{varname}}[0]));
 		    outfile_{{varname}}.close();
-			EM_ASM(
-				add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', '{{get_array_filename(var) | replace('\\', '\\\\')}}', $0);
-			, {{varname}}.size());
+			EM_ASM({
+				add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', UTF8ToString($0) + '{{get_array_filename(var)}}', $1);
+			}, results_dir.c_str(), {{varname}}.size());
 		}
 	} else
 	{
@@ -182,7 +269,7 @@ void _write_arrays()
 
 	{% for var, varname in dynamic_array_2d_specs | dictsort(by='value') %}
 	ofstream outfile_{{varname}};
-	outfile_{{varname}}.open("{{get_array_filename(var) | replace('\\', '\\\\')}}", ios::binary | ios::out);
+	outfile_{{varname}}.open(results_dir + "{{get_array_filename(var)}}", ios::binary | ios::out);
 	if(outfile_{{varname}}.is_open())
 	{
         for (int n=0; n<{{varname}}.n; n++)
@@ -193,9 +280,9 @@ void _write_arrays()
             }
         }
         outfile_{{varname}}.close();
-		EM_ASM(
-				add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', '{{get_array_filename(var) | replace('\\', '\\\\')}}', $0, $1);
-		, {{varname}}.n, {{varname}}.m);
+		EM_ASM({
+				add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', UTF8ToString($0) + '{{get_array_filename(var)}}', $1, $2);
+		}, results_dir.c_str(), {{varname}}.n, {{varname}}.m);
 	} else
 	{
 		std::cout << "Error writing output file for {{varname}}." << endl;
@@ -204,7 +291,7 @@ void _write_arrays()
     {% if profiled_codeobjects is defined and profiled_codeobjects %}
 	// Write profiling info to disk
 	ofstream outfile_profiling_info;
-	outfile_profiling_info.open("results/profiling_info.txt", ios::out);
+	outfile_profiling_info.open(results_dir + "profiling_info.txt", ios::out);
 	if(outfile_profiling_info.is_open())
 	{
 	{% for codeobj in profiled_codeobjects | sort %}
@@ -218,7 +305,7 @@ void _write_arrays()
     {% endif %}
 	// Write last run info to disk
 	ofstream outfile_last_run_info;
-	outfile_last_run_info.open("results/last_run_info.txt", ios::out);
+	outfile_last_run_info.open(results_dir + "last_run_info.txt", ios::out);
 	if(outfile_last_run_info.is_open())
 	{
 		outfile_last_run_info << (Network::_last_run_time) << " " << (Network::_last_run_completed_fraction) << std::endl;
@@ -275,6 +362,7 @@ void _dealloc_arrays()
 
 namespace brian {
 
+extern std::string results_dir;
 // In OpenMP we need one state per thread
 extern std::vector< rk_state* > _mersenne_twister_states;
 
@@ -287,6 +375,10 @@ extern Clock {{clock.name}};
 {% for net in networks | sort(attribute='name') %}
 extern Network {{net.name}};
 {% endfor %}
+
+void set_variable_by_name(std::string, std::string);
+
+extern std::map<std::string, std::tuple<size_t, std::string, void*>> array_meta_data;
 
 //////////////// dynamic arrays ///////////
 {% for var, varname in dynamic_array_specs | dictsort(by='value') %}
