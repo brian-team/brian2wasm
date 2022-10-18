@@ -11,7 +11,7 @@ all: $(PROGRAM)
 .PHONY: all clean
 
 $(PROGRAM): $(OBJS) $(DEPS) makefile {{ preamble_file }}
-	emcc $(OBJS) -o $(PROGRAM) $(LFLAGS) {{ preloads }} --pre-js {{ preamble_file }} -s MODULARIZE --js-library brian_library.js -s ENVIRONMENT=worker
+	emcc $(OBJS) -o $(PROGRAM) $(LFLAGS) {{ preloads }} --pre-js {{ preamble_file }} -s MODULARIZE -s ENVIRONMENT=worker
 
 clean:
 	{{ rm_cmd }}

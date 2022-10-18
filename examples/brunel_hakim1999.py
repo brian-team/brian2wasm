@@ -1,7 +1,7 @@
 from brian2 import *
 import brian2wasm
 set_device('wasm_standalone')
-
+prefs.codegen.cpp.headers += ['<emscripten.h>']
 N = 5000
 Vr = 10*mV
 theta = 20*mV

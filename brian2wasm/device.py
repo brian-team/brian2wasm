@@ -66,17 +66,12 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         # Rename randomkit.c so that emcc compiles it to wasm
         os.rename(os.path.join(directory, 'brianlib', 'randomkit', 'randomkit.c'),
                   os.path.join(directory, 'brianlib', 'randomkit', 'randomkit.cpp'))
-        shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'brian_library.js'), directory)
         shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'worker.js'), directory)
         shutil.copy(self.build_options['html_file'], directory)
 
     def get_report_func(self, report):
         # Code for a progress reporting function
         standard_code = """
-        extern "C" {
-            extern void brian_report_progress(float, float, float, float);
-        }
-        
         std::string _format_time(float time_in_s)
         {
             float divisors[] = {24*60*60, 60*60, 60, 1};
@@ -107,7 +102,9 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         void report_progress(const double elapsed, const double completed, const double start, const double duration)
         {
             // Send progress to javascript
-            brian_report_progress(elapsed, completed, start, duration);
+            EM_ASM({
+            (postMessage({ type: 'progress', elapsed: $0, completed: $1, start: $2, duration: $3}));
+            }, elapsed, completed, start, duration);
             if (completed == 0.0)
             {
                 %STREAMNAME% << "Starting simulation at t=" << start << " s for duration " << duration << " s";
