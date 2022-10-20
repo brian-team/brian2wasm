@@ -3,8 +3,20 @@
   <head>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <title>Brian simulation</title>
-	<script src="https://cdn.plot.ly/plotly-2.14.0.min.js"></script>
+    <title>Brian simulation: Brunel & Hakim (1999)</title>
+    <script src="plotly-2.14.0.min.js"></script>
+	  <script src="brian.js"></script>
+  <script>
+    var brian_sim = new BrianSimulation(
+      result_plots=[{type: 'raster', canvas: 'canvas'}],
+      progress={type: 'bar', bar_id: 'brian_progress_bar', text_id: 'brian_progress_text'},
+      run_button='brian_run_button'
+    );
+    // wait until the website is fully defined
+    window.onload = (event) => {
+      brian_sim.init();
+    }
+  </script>
   </head>
   <body>
   <h1>Fast Global Oscillations in Networks of Integrate-and-Fire Neurons with Low Firing Rates</h1>
@@ -12,48 +24,6 @@
   <div id="canvas" style='width: 600px; height:400px;'></div>
     <progress id="brian_progress_bar" max=1.0 value=0.0 style="width: 90%"></progress>
     <div id='brian_progress_text'></div>
-  <button type="button" id='brian_run_button' onclick="this.disabled = true; document.getElementById('brian_progress_bar').removeAttribute('value'); worker.postMessage({});">Run</button> 
+  <button type="button" id='brian_run_button' onclick="brian_sim.run();">Run</button> 
   </body>
-  <script type="text/javascript">
-  var worker = new Worker('worker.js');
-  
-  var layout = {
-    title: {
-        text: 'Spiking activity'
-    },
-    xaxis: {
-      title: {
-        text: 'Time (s)'
-      }
-    },
-    yaxis: {
-      title: {
-        text: 'Neuron index'
-      }
-    }
-    };
-  Plotly.newPlot('canvas', [], layout);
-  worker.onmessage = (e) => {
-    if (e.data.type === 'results') {
-      var brian_results = e.data.results;
-      var spikes = {
-          x : brian_results['spikemonitor'].t,
-          y : brian_results['spikemonitor'].i,
-          mode: 'markers',
-          marker: {size: 2},
-          type: 'scatter'
-      };
-      Plotly.react('canvas', [spikes], layout);
-      document.getElementById('brian_run_button').disabled = false;
-    }
-    else if (e.data.type == 'progress') {
-      console.log('Progress:')
-      console.log(e.data.completed)
-      document.getElementById('brian_progress_bar').value = e.data.completed;
-      document.getElementById('brian_progress_text').innerHTML = `${Math.round(e.data.completed*e.data.duration, 3)}s (<b>${Math.round(e.data.completed*100., 0)} %</b>) simulated in ${Math.round(e.data.elapsed, 3)}s.`
-    } else {
-      console.log('Received unknown message type');
-      console.log(e);
-    }
-  };</script>  
 </html>

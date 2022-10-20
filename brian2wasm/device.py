@@ -67,6 +67,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         os.rename(os.path.join(directory, 'brianlib', 'randomkit', 'randomkit.c'),
                   os.path.join(directory, 'brianlib', 'randomkit', 'randomkit.cpp'))
         shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'worker.js'), directory)
+        shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'brian.js'), directory)
         shutil.copy(self.build_options['html_file'], directory)
 
     def get_report_func(self, report):
