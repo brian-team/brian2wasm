@@ -27,9 +27,11 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
     """
     def __init__(self, *args, **kwds):
         super(WASMStandaloneDevice, self).__init__(*args, **kwds)
+
+    def activate(self, *args, **kwargs):
+        super(WASMStandaloneDevice, self).activate(*args, **kwargs)
         # Overwrite the templater to prefer our templates
         self.code_object_class().templater = self.code_object_class().templater.derive('brian2wasm')
-
 
     def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug):
         compiler_flags = '-Ibrianlib/randomkit'
