@@ -1,5 +1,10 @@
 PROGRAM = wasm_module.js
 
+{% if emsdk_path %}{# Otherwise we assume it has been already activated globally #}
+IGNORE := $(shell bash -c "{{emsdk_path}}/emsdk activate {{emsdk_version}} && source {{emsdk_path}}/emsdk_env.sh; env | sed 's/=/:=/' | sed 's/^/export /' > makeenv")
+include makeenv
+{% endif %}
+
 SRCS = {{source_files}}
 H_SRCS = {{header_files}}
 OBJS = ${SRCS:.cpp=.o}

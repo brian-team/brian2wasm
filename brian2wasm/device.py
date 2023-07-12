@@ -10,6 +10,7 @@ import numpy as np
 
 from brian2.units import second
 from brian2.core.namespace import get_local_namespace
+from brian2.core.preferences import prefs, BrianPreference
 from brian2.synapses import Synapses
 from brian2.utils.logger import get_logger
 from brian2.utils.filetools import in_directory
@@ -20,6 +21,18 @@ __all__ = []
 
 logger = get_logger(__name__)
 
+prefs.register_preferences(
+    'devices.wasm_standalone',
+    'Preferences for the WebAsm backend',
+    emsdk_directory=BrianPreference(
+        docs='''Path to the emsdk directory, containing the emsdk binary.''',
+        default=''
+    ),
+    emsdk_version=BrianPreference(
+        docs='''Version of the emsdk to use, defaults to "latest"''',
+        default="latest"
+    ),
+)
 
 class WASMStandaloneDevice(CPPStandaloneDevice):
     """
@@ -32,6 +45,8 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         super(WASMStandaloneDevice, self).activate(*args, **kwargs)
         # Overwrite the templater to prefer our templates
         self.code_object_class().templater = self.code_object_class().templater.derive('brian2wasm')
+        if '<emscripten.h>' not in prefs.codegen.cpp.headers:
+            prefs.codegen.cpp.headers += ['<emscripten.h>']
 
     def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug):
         compiler_flags = '-Ibrianlib/randomkit'
@@ -50,6 +65,12 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         source_files = source_files.replace('brianlib/randomkit/randomkit.c', 
                                             'brianlib/randomkit/randomkit.cpp')
         preamble_file = os.path.join(os.path.dirname(__file__), 'templates', 'pre.js')
+        emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
+        emsdk_version = prefs.devices.wasm_standalone.emsdk_version
+        if not emsdk_path:
+            # Check whether EMSDK is already activated
+            if not(os.environ.get("EMSDK", "")) or os.environ["EMSDK"] not in os.environ["PATH"]:
+                raise ValueError("Please provide the path to the emsdk directory in the preferences")
         makefile_tmp = self.code_object_class().templater.makefile(None, None,
             source_files=source_files,
             header_files=' '.join(sorted(writer.header_files)),
@@ -59,7 +80,9 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             linker_flags=linker_flags,
             preloads=preloads,
             preamble_file=preamble_file,
-            rm_cmd=rm_cmd)
+            rm_cmd=rm_cmd,
+            emsdk_path=emsdk_path,
+            emsdk_version=emsdk_version)
         writer.write('makefile', makefile_tmp)
         
 
@@ -249,9 +272,13 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
 
     def run(self, directory, results_directory, with_output, run_args):
         with in_directory(directory):
-            run_cmd = ['emrun', os.path.basename(self.build_options['html_file'])]
+            if prefs.devices.wasm_standalone.emsdk_directory:
+                emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
+                run_cmd = ['source', f'{emsdk_path}/emsdk_env.sh', '&&', 'emrun', os.path.basename(self.build_options['html_file'])]
+            else:
+                run_cmd = ['emrun', os.path.basename(self.build_options['html_file'])]
             start_time = time.time()
-            x = subprocess.call(run_cmd + run_args)
+            os.system(f"/bin/bash -c '{' '.join(run_cmd + run_args)}'")
             self.timers['run_binary'] = time.time() - start_time
 
     def build(self, html_file=None, **kwds):
