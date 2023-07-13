@@ -10,7 +10,7 @@ H_SRCS = {{header_files}}
 OBJS = ${SRCS:.cpp=.o}
 OPTIMISATIONS = {{ compiler_flags }} -O3 -ffast-math -fno-finite-math-only -march=native -std=c++11
 CXXFLAGS = -c -Wno-write-strings $(OPTIMISATIONS) -I. {{ openmp_pragma('compilation') }} {{ compiler_debug_flags }} -fwasm-exceptions 
-LFLAGS = {{ openmp_pragma('compilation') }} {{ linker_flags }} {{ linker_debug_flags }} -fwasm-exceptions -sALLOW_MEMORY_GROWTH
+LFLAGS = {{ openmp_pragma('compilation') }} $(OPTIMISATIONS) {{ linker_flags }} {{ linker_debug_flags }} -fwasm-exceptions -sALLOW_MEMORY_GROWTH
 all: $(PROGRAM)
 
 .PHONY: all clean
