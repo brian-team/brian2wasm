@@ -47,7 +47,14 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
     The `Device` used for WASM simulations.
     """
     def __init__(self, *args, **kwds):
+        self.transfer_results = None
         super(WASMStandaloneDevice, self).__init__(*args, **kwds)
+
+    def transfer_only(self, variableviews):
+        assert self.transfer_results is None
+        self.transfer_results = []
+        for variableview in variableviews:
+            self.transfer_results.append(variableview.variable)
 
     def activate(self, *args, **kwargs):
         super(WASMStandaloneDevice, self).activate(*args, **kwargs)
@@ -55,6 +62,29 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         self.code_object_class().templater = self.code_object_class().templater.derive('brian2wasm')
         if '<emscripten.h>' not in prefs.codegen.cpp.headers:
             prefs.codegen.cpp.headers += ['<emscripten.h>']
+
+    def generate_objects_source(
+        self, writer, arange_arrays, synapses, static_array_specs, networks
+    ):
+        arr_tmp = self.code_object_class().templater.objects(
+            None,
+            None,
+            array_specs=self.arrays,
+            dynamic_array_specs=self.dynamic_arrays,
+            dynamic_array_2d_specs=self.dynamic_arrays_2d,
+            zero_arrays=self.zero_arrays,
+            arange_arrays=arange_arrays,
+            synapses=synapses,
+            clocks=self.clocks,
+            static_array_specs=static_array_specs,
+            networks=networks,
+            get_array_filename=self.get_array_filename,
+            get_array_name=self.get_array_name,
+            profiled_codeobjects=self.profiled_codeobjects,
+            code_objects=list(self.code_objects.values()),
+            transfer_results=self.transfer_results,
+        )
+        writer.write("objects.*", arr_tmp)
 
     def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug):
         compiler_flags = '-Ibrianlib/randomkit'

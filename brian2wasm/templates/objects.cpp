@@ -232,6 +232,7 @@ void _write_arrays()
 
 	{% for var, varname in array_specs | dictsort(by='value') %}
 	{% if not (var in dynamic_array_specs or var in dynamic_array_2d_specs) %}
+	{% if not transfer_results or var in transfer_results %}
 	ofstream outfile_{{varname}};
 	outfile_{{varname}}.open(results_dir + "{{get_array_filename(var)}}", ios::binary | ios::out);
 	if(outfile_{{varname}}.is_open())
@@ -241,14 +242,17 @@ void _write_arrays()
 		EM_ASM({
 			add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', UTF8ToString($0) + '{{get_array_filename(var)}}', {{var.size}});
 		}, results_dir.c_str());
+
 	} else
 	{
 		std::cout << "Error writing output file for {{varname}}." << endl;
 	}
 	{% endif %}
+	{% endif %}
 	{% endfor %}
 
 	{% for var, varname in dynamic_array_specs | dictsort(by='value') %}
+	{% if not transfer_results or var in transfer_results %}
 	ofstream outfile_{{varname}};
 	outfile_{{varname}}.open(results_dir + "{{get_array_filename(var)}}", ios::binary | ios::out);
 	if(outfile_{{varname}}.is_open())
@@ -265,9 +269,11 @@ void _write_arrays()
 	{
 		std::cout << "Error writing output file for {{varname}}." << endl;
 	}
+	{% endif %}
 	{% endfor %}
 
 	{% for var, varname in dynamic_array_2d_specs | dictsort(by='value') %}
+	{% if not transfer_results or var in transfer_results %}
 	ofstream outfile_{{varname}};
 	outfile_{{varname}}.open(results_dir + "{{get_array_filename(var)}}", ios::binary | ios::out);
 	if(outfile_{{varname}}.is_open())
@@ -280,6 +286,7 @@ void _write_arrays()
             }
         }
         outfile_{{varname}}.close();
+
 		EM_ASM({
 				add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', UTF8ToString($0) + '{{get_array_filename(var)}}', $1, $2);
 		}, results_dir.c_str(), {{varname}}.n, {{varname}}.m);
@@ -287,6 +294,7 @@ void _write_arrays()
 	{
 		std::cout << "Error writing output file for {{varname}}." << endl;
 	}
+	{% endif %}
 	{% endfor %}
     {% if profiled_codeobjects is defined and profiled_codeobjects %}
 	// Write profiling info to disk
