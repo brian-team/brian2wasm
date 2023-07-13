@@ -34,6 +34,14 @@ prefs.register_preferences(
     ),
 )
 
+
+DEFAULT_HTML_CONTENT = {'title': 'Brian simulation',
+                        'h1': '',
+                        'h2': '',
+                        'description': '',
+                        'canvas_width': '95%',
+                        'canvas_height': '500px'}
+
 class WASMStandaloneDevice(CPPStandaloneDevice):
     """
     The `Device` used for WASM simulations.
@@ -93,7 +101,8 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
                   os.path.join(directory, 'brianlib', 'randomkit', 'randomkit.cpp'))
         shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'worker.js'), directory)
         shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'brian.js'), directory)
-        shutil.copy(self.build_options['html_file'], directory)
+        if self.build_options['html_file']:
+            shutil.copy(self.build_options['html_file'], directory)
 
     def get_report_func(self, report):
         # Code for a progress reporting function
@@ -136,7 +145,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
                 %STREAMNAME% << "Starting simulation at t=" << start << " s for duration " << duration << " s";
             } else
             {
-                %STREAMNAME% << completed*duration << " s (" << (int)(completed*100.) << "%) simulated in " << _format_time(elapsed);
+                %STREAMNAME% << completed*duration << " s (" << (int)(completed*100.) << "%) simulated in " << _format_time(elapsed) << " (" << elapsed << "s)";
                 if (completed < 1.0)
                 {
                     const int remaining = (int)((1-completed)/completed*elapsed+0.5);
@@ -271,25 +280,41 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             self.build(direct_call=False, **self.build_options)
 
     def run(self, directory, results_directory, with_output, run_args):
-        with in_directory(directory):
-            if prefs.devices.wasm_standalone.emsdk_directory:
-                emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
-                run_cmd = ['source', f'{emsdk_path}/emsdk_env.sh', '&&', 'emrun', os.path.basename(self.build_options['html_file'])]
-            else:
-                run_cmd = ['emrun', os.path.basename(self.build_options['html_file'])]
-            start_time = time.time()
-            os.system(f"/bin/bash -c '{' '.join(run_cmd + run_args)}'")
-            self.timers['run_binary'] = time.time() - start_time
-
-    def build(self, html_file=None, **kwds):
+        html_file = self.build_options['html_file']
+        html_content = self.build_options['html_content']
         if html_file is None:
             import __main__
             html_file = os.path.splitext(__main__.__file__)[0] + '.html'
             if not os.path.exists(html_file):
-                raise ValueError(f"Need to provide 'html_file' argument, or store the HTML file "
-                                 f"as '{html_file}'.")
-        
-        self.build_options['html_file'] = html_file
+                if html_content is None:
+                    html_content = dict(DEFAULT_HTML_CONTENT)
+                else:
+                    for key in html_content:
+                        if key not in DEFAULT_HTML_CONTENT:
+                            raise KeyError(f"Key '{key} is not a valid key for html_content. Allowed keys: {', '.join(DEFAULT_HTML_CONTENT.keys())}")
+                    for key in DEFAULT_HTML_CONTENT:
+                        if key not in html_content:
+                            html_content[key] = DEFAULT_HTML_CONTENT[key]
+                html_file = os.path.join(self.project_dir, 'index.html')
+
+                # Create HTML file from template in code directory
+                html_tmp = self.code_object_class().templater.html_template(None, None,
+                                                                            **html_content)
+                with open(html_file, 'w') as f:
+                    f.write(html_tmp)
+        with in_directory(directory):
+            if prefs.devices.wasm_standalone.emsdk_directory:
+                emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
+                run_cmd = ['source', f'{emsdk_path}/emsdk_env.sh', '&&', 'emrun', os.path.basename(html_file)]
+            else:
+                run_cmd = ['emrun', os.path.basename(html_file)]
+            start_time = time.time()
+            os.system(f"/bin/bash -c '{' '.join(run_cmd + run_args)}'")
+            self.timers['run_binary'] = time.time() - start_time
+
+    def build(self, html_file=None, html_content=None, **kwds):
+        self.build_options.update({'html_file': html_file,
+                                   'html_content': html_content})
         super(WASMStandaloneDevice, self).build(**kwds)
 
 

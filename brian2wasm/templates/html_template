@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>{{title}}</title>
+    <script src="plotly-2.14.0.min.js"></script>
+    <script src="brian.js"></script>
+    <script>
+    var brian_sim = new BrianSimulation(result_plots=[{type: 'raster'}]);
+    // wait until the website is fully defined
+    window.onload = (event) => {
+      brian_sim.init();
+    }
+    </script>
+</head>
+<body>
+<h1>{{h1}}</h1>
+<h2>{{h2}}</h2>
+<p>{{description}}</p>
+<div id="brian_canvas" style='width: {{canvas_width}}; height: {{canvas_height}};'></div>
+<progress id="brian_progress_bar" max=1.0 value=0.0 style="width: 90%"></progress>
+<div id='brian_progress_text'></div>
+<button type="button" id='brian_run_button' onclick="brian_sim.run();">Run</button>
+</body>
+</html>
