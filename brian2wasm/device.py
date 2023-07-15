@@ -332,6 +332,9 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
                                                                             **html_content)
                 with open(html_file, 'w') as f:
                     f.write(html_tmp)
+            else:  # HTML file exists, copy it to the project directory
+                shutil.copy(html_file, self.project_dir)
+
         with in_directory(directory):
             if prefs.devices.wasm_standalone.emsdk_directory:
                 emsdk_path = prefs.devices.wasm_standalone.emsdk_directory

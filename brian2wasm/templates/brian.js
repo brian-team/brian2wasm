@@ -3,8 +3,8 @@ class BrianSimulation {
         this.worker = new Worker('worker.js');
         this.result_plots = (typeof result_plots !== "undefined") ? result_plots : [];
         this.plot_funcs = [];
-        this.progress = (typeof progress !== "undefined") ? progress : {};
-        this.run_button = run_button;
+        this.progress = (typeof progress !== "undefined") ? progress : {type: 'bar', bar_id: 'brian_progress_bar', text_id: 'brian_progress_text'};
+        this.run_button = (typeof run_button !== "undefined") ? run_button : "brian_run_button";
 
     }
 
@@ -49,7 +49,8 @@ class BrianSimulation {
                         marker: { size: 2 },
                         type: 'scatter'
                     };
-                    Plotly.react(result_plot.canvas, [spikes], layout);
+                    let canvas = (typeof result_plot.canvas !== "undefined") ? result_plot.canvas : "brian_canvas";
+                    Plotly.react(canvas, [spikes], layout);
                 };
                 this.plot_funcs.push(plot);
             } else {
@@ -75,13 +76,15 @@ class BrianSimulation {
         }
     }
 
-    run() {
+    run(data) {
         // disable run button
         this.run_button.disabled = true;
         // set progress bar to undetermined state
         if (this.progress.type == 'bar')
             document.getElementById(this.progress.bar_id).removeAttribute('value');
         // send message to worker
-        this.worker.postMessage({});
+        if (data === undefined)
+            data = {};
+        this.worker.postMessage(data);
     }
 }
