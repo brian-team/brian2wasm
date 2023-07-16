@@ -4,9 +4,8 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <title>Brian simulation: Brunel & Hakim (1999)</title>
-    <script src="plotly-2.14.0.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-2.14.0.min.js"></script>
     <script src="brian.js"></script>
-    <script src="audiosynth.js"></script>
     <script>
     var brian_sim = new BrianSimulation(result_plots=[]);
     // wait until the website is fully defined
@@ -31,7 +30,7 @@
         // Update plot for every 2ms of simulated time
         if (t > brian_sim.last_plot_time + 0.002) {
             layout.datarevision += 1;
-            Plotly.react('brian_canvas', spikes, layout);
+            Plotly.react('brian_canvas', spikes, layout)
             brian_sim.last_plot_time = t;
         }
       } else {

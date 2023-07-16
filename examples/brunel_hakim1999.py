@@ -1,7 +1,8 @@
 from brian2 import *
 import brian2wasm
-set_device('wasm_standalone')
-prefs.codegen.cpp.headers += ['<emscripten.h>']
+set_device('wasm_standalone', directory='brunel_hakim1999',
+           html_content={"h1": "Fast Global Oscillations in Networks of Integrate-and-Fire Neurons with Low Firing Rates",
+                         "h2": "Brunel & Hakim (1999)"})
 N = 5000
 Vr = 10*mV
 theta = 20*mV
