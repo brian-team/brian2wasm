@@ -132,7 +132,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'worker.js'), directory)
         shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'brian.js'), directory)
         if self.build_options['html_file']:
-            shutil.copy(self.build_options['html_file'], directory)
+            shutil.copy(self.build_options['html_file'], os.path.join(directory, 'index.html'))
 
     def get_report_func(self, report):
         # Code for a progress reporting function
@@ -333,14 +333,14 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
                 with open(html_file, 'w') as f:
                     f.write(html_tmp)
             else:  # HTML file exists, copy it to the project directory
-                shutil.copy(html_file, self.project_dir)
+                shutil.copy(html_file, os.path.join(self.project_dir, 'index.html'))
 
         with in_directory(directory):
             if prefs.devices.wasm_standalone.emsdk_directory:
                 emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
-                run_cmd = ['source', f'{emsdk_path}/emsdk_env.sh', '&&', 'emrun', os.path.basename(html_file)]
+                run_cmd = ['source', f'{emsdk_path}/emsdk_env.sh', '&&', 'emrun', 'index.html']
             else:
-                run_cmd = ['emrun', os.path.basename(html_file)]
+                run_cmd = ['emrun', 'index.html']
             start_time = time.time()
             os.system(f"/bin/bash -c '{' '.join(run_cmd + run_args)}'")
             self.timers['run_binary'] = time.time() - start_time
