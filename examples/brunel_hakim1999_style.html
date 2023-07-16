@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Brian simulation: Brunel & Hakim (1999)</title>
+    <script src="brian.js"></script>
+    <script>
+    function myplot(event) {
+        const brian_results = event.data.results;
+        const t = brian_results['ratemonitor'].t;
+        const rates = brian_results['ratemonitor'].rate;
+        let data = [];
+        for (let i=10; i<t.length; i+=10) {
+            let sum = 0;
+            for (let j=0; j<10; j++) {
+                sum += rates[i-j];
+            }
+            data.push({x: t[i]*1000, y: sum/10});
+        }
+        const ctx = document.getElementById('brian_canvas');
+        new Chart(ctx,
+                    {type: 'line',
+                     data: {labels: t.map(x => x*1000),
+                            datasets: [{label: 'Rate',
+                                        data: data
+                                         }]
+                             },
+                    options: {
+                        elements: {
+                           line: {
+                             borderColor: "#d17930",
+                             borderWidth: 5
+                           }
+                        },
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {display: false}
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Time (ms)'
+                                },
+                                grid: {
+                                    display: false
+                                },
+                                    ticks: {
+                                        autoSkip: true,
+                                        maxTicksLimit: 4
+                                    }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Rate (Hz)'
+                                },
+                                grid: {
+                                    display: false
+                                },
+                            }
+                        }
+                    }
+                    });
+    }
+    var brian_sim = new BrianSimulation(result_plots=[{type: 'custom', func: myplot}]);
+    // wait until the website is fully defined
+    window.onload = (event) => {
+      brian_sim.init();
+    }
+
+    </script>
+    <link rel="stylesheet"
+          href="https://fonts.googleapis.com/css?family=Pacifico">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        html {
+            font-family: 'Pacifico', cursive;
+        }
+        h1 {
+            color: #333e63;
+            font-size: 200%;
+        }
+        body {
+            font-size: 150%;
+        }
+        progress {
+            accent-color: #D17930;
+            height: 1em;
+            margin-left: 2em;
+            appearance: none;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+<h1>Oscillate like Brunel & Hakim</h1>
+Let's <a href="#" onclick="brian_sim.run(); return false;">go</a>!
+<progress id="brian_progress_bar" max=1.0 value=0.0 style="width: 20em"></progress>
+<div style='width: 90%; height:400px; align: center'>
+    <canvas id="brian_canvas"></canvas>
+</div>
+<div id='brian_progress_text' style="float:right"></div>
+</body>
+</html>
