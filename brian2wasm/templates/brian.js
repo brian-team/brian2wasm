@@ -53,6 +53,8 @@ class BrianSimulation {
                     Plotly.react(canvas, [spikes], layout);
                 };
                 this.plot_funcs.push(plot);
+            } else if (result_plot.type === 'custom') {
+                this.plot_funcs.push(result_plot.func);
             } else {
                 console.warn('Unsupported plot type ' + result_plot.type);
             }
@@ -64,7 +66,8 @@ class BrianSimulation {
                 this.plot_funcs.forEach(plot => {
                     plot(e);
                 });
-                this.run_button.disabled = false;
+                if (this.run_button)
+                    this.run_button.disabled = false;
             }
             else if (e.data.type == 'progress') {
                 if (this.report)
@@ -78,7 +81,8 @@ class BrianSimulation {
 
     run(data) {
         // disable run button
-        this.run_button.disabled = true;
+        if (this.run_button)
+            this.run_button.disabled = true;
         // set progress bar to undetermined state
         if (this.progress.type == 'bar')
             document.getElementById(this.progress.bar_id).removeAttribute('value');
