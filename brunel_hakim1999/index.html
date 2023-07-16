@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Brian simulation</title>
+    <script src="https://cdn.plot.ly/plotly-2.14.0.min.js"></script>
+    <script src="brian.js"></script>
+    <script>
+    var brian_sim = new BrianSimulation(result_plots=[{type: 'raster'}]);
+    // wait until the website is fully defined
+    window.onload = (event) => {
+      brian_sim.init();
+    }
+    </script>
+</head>
+<body>
+<h1>Fast Global Oscillations in Networks of Integrate-and-Fire Neurons with Low Firing Rates</h1>
+<h2>Brunel & Hakim (1999)</h2>
+<p></p>
+<div id="brian_canvas" style='width: 95%; height: 500px;'></div>
+<progress id="brian_progress_bar" max=1.0 value=0.0 style="width: 90%"></progress>
+<div id='brian_progress_text'></div>
+<button type="button" id='brian_run_button' onclick="brian_sim.run();">Run</button>
+</body>
+</html>

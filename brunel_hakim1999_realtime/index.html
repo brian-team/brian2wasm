@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Brian simulation: Brunel & Hakim (1999)</title>
+    <script src="https://cdn.plot.ly/plotly-2.14.0.min.js"></script>
+    <script src="brian.js"></script>
+    <script>
+    var brian_sim = new BrianSimulation(result_plots=[]);
+    // wait until the website is fully defined
+    window.onload = (event) => {
+      brian_sim.init();
+      brian_sim.last_plot_time = 0.0;
+      // Create empty plot
+      var layout = {title: {text: 'Spiking activity'},
+                    xaxis: {title: {text: 'Time (s)'}, range: [0, 0.1]},
+                    yaxis: {title: {text: 'Neuron index'}, range: [0, 5000]},
+                    datarevision: 0
+                    };
+      var spikes = [{x: [], y: [], mode: 'markers', marker: { size: 2 }, type: 'scatter'}];
+      Plotly.react('brian_canvas', spikes, layout);
+      old_onmessage = brian_sim.worker.onmessage;
+      brian_sim.worker.onmessage = (e) => {
+      if (e.data.type === 'spike') {
+        let index = e.data.index;
+        let t = e.data.time;
+        spikes[0].x.push(t);
+        spikes[0].y.push(index);
+        // Update plot for every 2ms of simulated time
+        if (t > brian_sim.last_plot_time + 0.002) {
+            layout.datarevision += 1;
+            Plotly.react('brian_canvas', spikes, layout)
+            brian_sim.last_plot_time = t;
+        }
+      } else {
+        old_onmessage(e);
+      }
+    }
+    }
+    </script>
+</head>
+<body>
+<h1>Fast Global Oscillations in Networks of Integrate-and-Fire Neurons with Low Firing Rates</h1>
+<h2>Brunel & Hakim (1999)</h2>
+<div id="brian_canvas" style='width: 600px; height:400px;'></div>
+<progress id="brian_progress_bar" max=1.0 value=0.0 style="width: 90%"></progress>
+<div id='brian_progress_text'></div>
+<button type="button" id='brian_run_button' onclick="brian_sim.run();">Run</button>
+</body>
+</html>
