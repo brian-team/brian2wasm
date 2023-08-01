@@ -53,6 +53,39 @@ class BrianSimulation {
                     Plotly.react(canvas, [spikes], layout);
                 };
                 this.plot_funcs.push(plot);
+            } else if (result_plot.type === 'line') {
+                    let var_name = result_plot.var_name;
+                    let unit_name = result_plot.unit_name;
+                    let unit_scale = result_plot.unit_scale;
+                    let indices = result_plot.indices;
+                    let plot = (event) => {
+                    let layout = {
+                        title: {
+                            text: 'Variable ' + var_name
+                        },
+                        xaxis: {
+                            title: {
+                                text: 'Time (s)'
+                            }
+                        },
+                        yaxis: {
+                            title: {
+                                text: var_name + ' (' + unit_name + ')'
+                            }
+                        }
+                    };
+                    var brian_results = event.data.results;
+                    var lines = indices.map(i => {
+                    return {
+                        x: brian_results['statemonitor'].t,
+                        y: Array.from(brian_results['statemonitor'][var_name][i]).map(x => x / unit_scale),
+                        type: 'line'
+                    }});
+                    console.log(brian_results['statemonitor'][var_name][0])
+                    let canvas = (typeof result_plot.canvas !== "undefined") ? result_plot.canvas : "brian_canvas";
+                    Plotly.react(canvas, lines, layout);
+                };
+                this.plot_funcs.push(plot);
             } else if (result_plot.type === 'custom') {
                 this.plot_funcs.push(result_plot.func);
             } else {

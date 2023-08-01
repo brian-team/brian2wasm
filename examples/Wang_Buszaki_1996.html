@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <title>Brian simulation: Wang & Buszaki (1996)</title>
+    <script src="https://cdn.plot.ly/plotly-2.14.0.min.js"></script>
+    <script src="brian.js"></script>
+    <script>
+    var brian_sim = new BrianSimulation(result_plots=[{type: 'line',
+                                                       var_name: 'v',
+                                                       unit_name: 'mV',
+                                                       unit_scale: 0.001,
+                                                       indices: [0]
+                                                       }]);
+    // wait until the website is fully defined
+    window.onload = (event) => {
+      brian_sim.init();
+    }
+    </script>
+</head>
+<body>
+<h2>Wang & Buszaki (1996)</h2>
+<div id="brian_canvas" style='width: 600px; height:400px;'></div>
+<progress id="brian_progress_bar" max=1.0 value=0.0 style="width: 90%"></progress>
+<div id='brian_progress_text'></div>
+<button type="button" id='brian_run_button'
+        onclick="brian_sim.run();">
+    Run
+</button>
+</body>
+</html>
