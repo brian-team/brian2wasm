@@ -64,7 +64,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             prefs.codegen.cpp.headers += ['<emscripten.h>']
 
     def generate_objects_source(
-        self, writer, arange_arrays, synapses, static_array_specs, networks
+        self, writer, arange_arrays, synapses, static_array_specs, networks, timed_arrays
     ):
         arr_tmp = self.code_object_class().templater.objects(
             None,
@@ -83,6 +83,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             profiled_codeobjects=self.profiled_codeobjects,
             code_objects=list(self.code_objects.values()),
             transfer_results=self.transfer_results,
+            timed_arrays=timed_arrays,
         )
         writer.write("objects.*", arr_tmp)
 
@@ -283,7 +284,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
                 run_lines.append(f'{net.name}.add(&{clock.name}, NULL);')
 
         run_lines.extend(self.code_lines['before_network_run'])
-        if not self.run_args_applied:
+        if hasattr(self, 'run_args_applied') and not self.run_args_applied:
             run_lines.append('set_from_command_line(args);')
             self.run_args_applied = True
         run_lines.append(f'{net.name}.run({float(duration)!r}, {report_call}, {float(report_period)!r});')
@@ -309,7 +310,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
                                    "statements with this device.")
             self.build(direct_call=False, **self.build_options)
 
-    def run(self, directory, results_directory, with_output, run_args):
+    def run(self, directory, results_directory, with_output, run_args=None):
         html_file = self.build_options['html_file']
         html_content = self.build_options['html_content']
         if html_file is None:
@@ -342,7 +343,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             else:
                 run_cmd = ['emrun', 'index.html']
             start_time = time.time()
-            os.system(f"/bin/bash -c '{' '.join(run_cmd + run_args)}'")
+            os.system(f"/bin/bash -c '{' '.join(run_cmd)}'")
             self.timers['run_binary'] = time.time() - start_time
 
     def build(self, html_file=None, html_content=None, **kwds):
