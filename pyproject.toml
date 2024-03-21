@@ -10,5 +10,5 @@ readme = "README.md"
 requires-python = ">=3.8"
 keywords = ["wasm", "brian"]
 dependencies = [
-    "brian2"
+    "brian2==2.6.0"
 ]

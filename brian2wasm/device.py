@@ -64,7 +64,13 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             prefs.codegen.cpp.headers += ['<emscripten.h>']
 
     def generate_objects_source(
-        self, writer, arange_arrays, synapses, static_array_specs, networks
+        self,
+        writer,
+        arange_arrays,
+        synapses,
+        static_array_specs,
+        networks,
+        timed_arrays,
     ):
         arr_tmp = self.code_object_class().templater.objects(
             None,
@@ -82,6 +88,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             get_array_name=self.get_array_name,
             profiled_codeobjects=self.profiled_codeobjects,
             code_objects=list(self.code_objects.values()),
+            timed_arrays=timed_arrays,
             transfer_results=self.transfer_results,
         )
         writer.write("objects.*", arr_tmp)
@@ -98,7 +105,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         else:
             compiler_debug_flags = ''
             linker_debug_flags = ''
-        
+
         source_files = ' '.join(sorted(writer.source_files))
         source_files = source_files.replace('brianlib/randomkit/randomkit.c', 
                                             'brianlib/randomkit/randomkit.cpp')
@@ -122,7 +129,6 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             emsdk_path=emsdk_path,
             emsdk_version=emsdk_version)
         writer.write('makefile', makefile_tmp)
-        
 
     def copy_source_files(self, writer, directory):
         super(WASMStandaloneDevice, self).copy_source_files(writer, directory)
@@ -240,7 +246,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         for clock in self.clocks:
             if clock.name=='clock':
                 clock._name = '_clock'
-            
+
         # Extract all the CodeObjects
         # Note that since we ran the Network object, these CodeObjects will be sorted into the right
         # running order, assuming that there is only one clock

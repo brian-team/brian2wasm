@@ -1,5 +1,19 @@
 {% macro cpp_file() %}
 
+{% macro set_from_value(var_dtype, array_name) %}
+{% if c_data_type(var_dtype) == 'double' %}
+set_variable_from_value<double>(name, {{array_name}}, var_size, (double)atof(s_value.c_str()));
+{% elif c_data_type(var_dtype) == 'float' %}
+set_variable_from_value<float>(name, {{array_name}}, var_size, (float)atof(s_value.c_str()));
+{% elif c_data_type(var_dtype) == 'int32_t' %}
+set_variable_from_value<int32_t>(name, {{array_name}}, var_size, (int32_t)atoi(s_value.c_str()));
+{% elif c_data_type(var_dtype) == 'int64_t' %}
+set_variable_from_value<int64_t>(name, {{array_name}}, var_size, (int64_t)atol(s_value.c_str()));
+{% elif c_data_type(var_dtype) == 'char' %}
+set_variable_from_value<char>(name, {{array_name}}, var_size, (char)atoi(s_value.c_str()));
+{% endif %}
+{%- endmacro %}
+
 #include "objects.h"
 #include "synapses_classes.h"
 #include "brianlib/clocks.h"
@@ -22,82 +36,100 @@ std::vector< rk_state* > _mersenne_twister_states;
 Network {{net.name}};
 {% endfor %}
 
-//////////////// array meta data //////////
-std::map<std::string, std::tuple<size_t, std::string, void*>> array_meta_data;
+
+template<class T> void set_variable_from_value(std::string varname, T* var_pointer, size_t size, T value) {
+    #ifdef DEBUG
+    std::cout << "Setting '" << varname << "' to " << value << std::endl;
+    #endif
+    std::fill(var_pointer, var_pointer+size, value);
+}
+
+template<class T> void set_variable_from_file(std::string varname, T* var_pointer, size_t data_size, std::string filename) {
+    ifstream f;
+    streampos size;
+    #ifdef DEBUG
+    std::cout << "Setting '" << varname << "' from file '" << filename << "'" << std::endl;
+    #endif
+    f.open(filename, ios::in | ios::binary | ios::ate);
+    size = f.tellg();
+    if (size != data_size) {
+        std::cerr << "Error reading '" << filename << "': file size " << size << " does not match expected size " << data_size << std::endl;
+        return;
+    }
+    f.seekg(0, ios::beg);
+    if (f.is_open())
+        f.read(reinterpret_cast<char *>(var_pointer), data_size);
+    else
+        std::cerr << "Could not read '" << filename << "'" << std::endl;
+    if (f.fail())
+        std::cerr << "Error reading '" << filename << "'" << std::endl;
+}
 
 //////////////// set arrays by name ///////
-void set_variable_by_name(std::string owner_variable, std::string s_value) {
-	std::tuple<size_t, std::string, void*> meta_data;
-	try {
-		meta_data  = array_meta_data.at(owner_variable);
-	} catch (const std::out_of_range& oor) {
-    	std::cerr << "Did not find variable '" << owner_variable << "'" << std::endl;
-  	}
-	const size_t var_size = std::get<0>(meta_data);
+void set_variable_by_name(std::string name, std::string s_value) {
+	size_t var_size;
 	size_t data_size;
-	const std::string var_type = std::get<1>(meta_data);
-	void* var_pointer = std::get<2>(meta_data);
+	std::for_each(s_value.begin(), s_value.end(), [](char& c) // modify in-place
+    {
+        c = std::tolower(static_cast<unsigned char>(c));
+    });
+    if (s_value == "true")
+        s_value = "1";
+    else if (s_value == "false")
+        s_value = "0";
+	// non-dynamic arrays
+	{% for var, varname in array_specs | dictsort(by='value') %}
+    {% if not var in dynamic_array_specs and not var.read_only %}
+    if (name == "{{var.owner.name}}.{{var.name}}") {
+        var_size = {{var.size}};
+        data_size = {{var.size}}*sizeof({{c_data_type(var.dtype)}});
+        if (s_value[0] == '-' || (s_value[0] >= '0' && s_value[0] <= '9')) {
+            // set from single value
+            {{ set_from_value(var.dtype, get_array_name(var)) }}
+        } else {
+            // set from file
+            set_variable_from_file(name, {{get_array_name(var)}}, data_size, s_value);
+        }
+        return;
+    }
+    {% endif %}
+    {% endfor %}
+    // dynamic arrays (1d)
+    {% for var, varname in dynamic_array_specs | dictsort(by='value') %}
+    {% if not var.read_only %}
+    if (name == "{{var.owner.name}}.{{var.name}}") {
+        var_size = {{get_array_name(var, access_data=False)}}.size();
+        data_size = var_size*sizeof({{c_data_type(var.dtype)}});
+        if (s_value[0] == '-' || (s_value[0] >= '0' && s_value[0] <= '9')) {
+            // set from single value
+            {{ set_from_value(var.dtype, "&" + get_array_name(var, False) + "[0]") }}
+        } else {
+            // set from file
+            set_variable_from_file(name, &{{get_array_name(var, False)}}[0], data_size, s_value);
+        }
+        return;
+    }
+    {% endif %}
+    {% endfor %}
+    {% for var, varname in timed_arrays | dictsort(by='value') %}
+    if (name == "{{varname}}.values") {
+        var_size = {{var.values.size}};
+        data_size = var_size*sizeof({{c_data_type(var.values.dtype)}});
+        if (s_value[0] == '-' || (s_value[0] >= '0' && s_value[0] <= '9')) {
+            // set from single value
+            {{ set_from_value(var.values.dtype, varname + "_values") }}
 
-	if (var_type == "double")
-	{
-		data_size = var_size * sizeof(double);
-	}
-	else if (var_type == "float")
-	{
-		data_size = var_size * sizeof(float);
-	}
-	else if (var_type == "int64_t")
-	{
-		data_size = var_size * sizeof(int64_t);
-	}
-	else if (var_type == "int32_t")
-	{
-		data_size = var_size * sizeof(int32_t);
-	}
-
-	if (s_value[0] == '-' || (s_value[0] >= '0' && s_value[0] <= '9'))
-	{
-		if (var_type == "double")
-		{
-			const double d_value = atof(s_value.c_str());
-			for (size_t i = 0; i < var_size; i++)
-			{
-				((double *)var_pointer)[i] = d_value;
-			}
-		}
-		else if (var_type == "float")
-		{
-			const float f_value = atof(s_value.c_str());
-			for (size_t i = 0; i < var_size; i++)
-				((float *)var_pointer)[i] = f_value;
-		}
-		else if (var_type == "int32_t")
-		{
-			const int32_t i32_value = atoi(s_value.c_str());
-			for (size_t i = 0; i < var_size; i++)
-				((int32_t *)var_pointer)[i] = i32_value;
-		}
-		else if (var_type == "int64_t")
-		{
-			const int64_t i64_value = atol(s_value.c_str());
-			for (size_t i = 0; i < var_size; i++)
-				((int64_t *)var_pointer)[i] = i64_value;
-		}
-	}
-	else
-	{ // file name
-		ifstream f;
-		f.open(s_value, ios::in | ios::binary);
-		if (f.is_open())
-		{
-			f.read(reinterpret_cast<char *>(var_pointer), data_size);
-		}
-		else
-		{
-			std::cerr << "Could not read '" << s_value << "'" << std::endl;
-		}
-	}
+        } else {
+            // set from file
+            set_variable_from_file(name, {{varname}}_values, data_size, s_value);
+        }
+        return;
+    }
+    {% endfor %}
+    std::cerr << "Cannot set unknown variable '" << name << "'." << std::endl;
+    exit(1);
 }
+
 //////////////// arrays ///////////////////
 {% for var, varname in array_specs | dictsort(by='value') %}
 {% if not var in dynamic_array_specs %}
@@ -184,14 +216,6 @@ void _init_arrays()
 	{{name}} = new {{dtype_spec}}[{{N}}];
 	{% endif %}
 	{% endfor %}
-
-	array_meta_data = {
-	{% for var, varname in array_specs | dictsort(by='value') %}
-		{% if not var in dynamic_array_specs and not var in dynamic_array_2d_specs and not var.read_only %}
-		{"{{var.owner.name}}.{{var.name}}", { {{var.size}}, "{{c_data_type(var.dtype)}}", {{varname}} } },
-		{% endif %}
-	{% endfor %}
-	};
 
 	// Random number generator states
 	for (int i=0; i<{{openmp_pragma('get_num_threads')}}; i++)
