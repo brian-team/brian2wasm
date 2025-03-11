@@ -20,7 +20,7 @@ set_variable_from_value<char>(name, {{array_name}}, var_size, (char)atoi(s_value
 #include "brianlib/dynamic_array.h"
 #include "brianlib/stdint_compat.h"
 #include "network.h"
-#include "randomkit.h"
+#include<random>
 #include<vector>
 #include<iostream>
 #include<fstream>
@@ -29,7 +29,10 @@ set_variable_from_value<char>(name, {{array_name}}, var_size, (char)atoi(s_value
 namespace brian {
 
 std::string results_dir = "results/";  // can be overwritten by --results_dir command line arg
-std::vector< rk_state* > _mersenne_twister_states;
+// For multhreading, we need one generator for each thread. We also create a distribution for
+// each thread, even though this is not strictly necessary for the uniform distribution, as
+// the distribution is stateless.
+std::vector< RandomGenerator > _random_generators;
 
 //////////////// networks /////////////////
 {% for net in networks | sort(attribute='name') %}
@@ -217,9 +220,10 @@ void _init_arrays()
 	{% endif %}
 	{% endfor %}
 
-	// Random number generator states
-	for (int i=0; i<{{openmp_pragma('get_num_threads')}}; i++)
-	    _mersenne_twister_states.push_back(new rk_state());
+    // Random number generator states
+    std::random_device rd;
+    for (int i=0; i<{{openmp_pragma('get_num_threads')}}; i++)
+        _random_generators.push_back(RandomGenerator());
 }
 
 void _load_arrays()
@@ -388,15 +392,68 @@ void _dealloc_arrays()
 #include "brianlib/dynamic_array.h"
 #include "brianlib/stdint_compat.h"
 #include "network.h"
-#include "randomkit.h"
+#include<random>
 #include<vector>
 {{ openmp_pragma('include') }}
 
 namespace brian {
 
 extern std::string results_dir;
+
+class RandomGenerator {
+    private:
+        std::mt19937 gen;
+        double stored_gauss;
+        bool has_stored_gauss = false;
+    public:
+        RandomGenerator() {
+            seed();
+        }
+        void seed() {
+            std::random_device rd;
+            gen.seed(rd());
+            has_stored_gauss = false;
+        }
+        void seed(unsigned long seed) {
+            gen.seed(seed);
+            has_stored_gauss = false;
+        }
+        double rand() {
+            /* shifts : 67108864 = 0x4000000, 9007199254740992 = 0x20000000000000 */
+            const long a = gen() >> 5;
+            const long b = gen() >> 6;
+            return (a * 67108864.0 + b) / 9007199254740992.0;
+        }
+
+        double randn() {
+            if (has_stored_gauss) {
+                const double tmp = stored_gauss;
+                has_stored_gauss = false;
+                return tmp;
+            }
+            else {
+                double f, x1, x2, r2;
+
+                do {
+                    x1 = 2.0*rand() - 1.0;
+                    x2 = 2.0*rand() - 1.0;
+                    r2 = x1*x1 + x2*x2;
+                }
+                while (r2 >= 1.0 || r2 == 0.0);
+
+                /* Box-Muller transform */
+                f = sqrt(-2.0*log(r2)/r2);
+                /* Keep for next call */
+                stored_gauss = f*x1;
+                has_stored_gauss = true;
+                return f*x2;
+            }
+        }
+};
+
+
 // In OpenMP we need one state per thread
-extern std::vector< rk_state* > _mersenne_twister_states;
+extern std::vector< RandomGenerator > _random_generators;
 
 //////////////// clocks ///////////////////
 {% for clock in clocks | sort(attribute='name') %}

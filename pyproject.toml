@@ -7,8 +7,9 @@ name = "brian2wasm"
 version = "0.0.1"
 description = "A WebAssembly backend for the Brian 2 simulator"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 keywords = ["wasm", "brian"]
 dependencies = [
-    "brian2==2.6.0"
+    "brian2==2.8.0.4",
+    "setuptools<75",
 ]

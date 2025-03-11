@@ -94,8 +94,6 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         writer.write("objects.*", arr_tmp)
 
     def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug):
-        compiler_flags = '-Ibrianlib/randomkit'
-        linker_flags = '-Lbrianlib/randomkit'
         preloads = ' '.join(f'--preload-file static_arrays/{static_array}'
                             for static_array in sorted(self.static_arrays.keys()))
         rm_cmd = 'rm $(OBJS) $(PROGRAM) $(DEPS)'
@@ -105,10 +103,9 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         else:
             compiler_debug_flags = ''
             linker_debug_flags = ''
-
+        compiler_flags = compiler_flags.replace("-march=native", "")  # don't pass -march to emcc
+        linker_flags = linker_flags.replace("--enable-new-dtags,", "")  # don't pass --enable-new-dtags to wasm-ld
         source_files = ' '.join(sorted(writer.source_files))
-        source_files = source_files.replace('brianlib/randomkit/randomkit.c', 
-                                            'brianlib/randomkit/randomkit.cpp')
         preamble_file = os.path.join(os.path.dirname(__file__), 'templates', 'pre.js')
         emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
         emsdk_version = prefs.devices.wasm_standalone.emsdk_version
@@ -132,9 +129,6 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
 
     def copy_source_files(self, writer, directory):
         super(WASMStandaloneDevice, self).copy_source_files(writer, directory)
-        # Rename randomkit.c so that emcc compiles it to wasm
-        os.rename(os.path.join(directory, 'brianlib', 'randomkit', 'randomkit.c'),
-                  os.path.join(directory, 'brianlib', 'randomkit', 'randomkit.cpp'))
         shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'worker.js'), directory)
         shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'brian.js'), directory)
         if self.build_options['html_file']:
