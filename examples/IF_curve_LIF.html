@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en-us">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Example: IF_curve_LIF</title>
+    <script src="brian.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            color: #2c5282; 
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            font-size: 18px;
+            line-height: 1.5;
+        }
+        
+        h1 {
+            color: #2b6cb0; 
+            text-align: center;
+            margin-bottom: 16px;
+            font-size: 30px; 
+            font-weight: 600;
+        }
+        
+        p.description {
+            text-align: center;
+            margin-bottom: 24px;
+            color: #3182ce;
+            font-size: 16px; 
+            line-height: 1.5;
+        }
+        
+        .chart-container {
+            height: 480px; 
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 25px;
+        }
+        
+        .controls {
+            display: flex;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+        
+        .run-button {
+            background-color: #3182ce; 
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px; 
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        .run-button:hover {
+            background-color: #2b6cb0;
+        }
+        
+        progress {
+            accent-color: #4299e1; 
+            width: 200px;
+            height: 10px; 
+            margin: 0 15px;
+        }
+        
+        #brian_progress_text {
+            font-size: 16px;
+            color: #4299e1; 
+        }
+    </style>
+</head>
+<body>
+    <h1>Example: IF_curve_LIF</h1>
+    <p class="description">
+        Input-Frequency curve of a IF model.<br>
+        Network: 1000 unconnected integrate-and-fire neurons (leaky IF) with an input parameter v0. The input is set differently for each neuron.
+    </p>
+    
+    <div class="controls">
+        <button class="run-button" onclick="brian_sim.run(); return false;">Run Simulation</button>
+        <progress id="brian_progress_bar" max="1.0" value="0.0"></progress>
+        <span id="brian_progress_text">0%</span>
+    </div>
+    
+    <div class="chart-container">
+        <canvas id="brian_canvas"></canvas>
+    </div>
+
+    <script>
+    function myplot(event) {
+        const brian_results = event.data.results;
+        const spikes = brian_results['spikemonitor'];
+        const n = 1000;
+        const duration = 1.0; 
+        
+        let firing_rates = Array(n).fill(0);
+        for (let i = 0; i < spikes.i.length; i++) {
+            firing_rates[spikes.i[i]] += 1;
+        }
+        
+        let data = [];
+        for (let i = 0; i < n; i++) {
+            const v0 = 20 * i / (n-1);
+            data.push({x: v0, y: firing_rates[i] / duration});
+        }
+        
+        const ctx = document.getElementById('brian_canvas');
+        new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'Firing Rate',
+                    data: data,
+                    backgroundColor: '#4299e1', 
+                    pointRadius: 3.5, 
+                    borderColor: '#3182ce',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `Input: ${context.parsed.x.toFixed(1)} mV, Rate: ${context.parsed.y.toFixed(1)} Hz`;
+                            }
+                        },
+                        titleFont: {
+                            size: 16
+                        },
+                        bodyFont: {
+                            size: 14
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Neuron Firing Rate vs. Input Current',
+                        font: {
+                            size: 20, 
+                            weight: 'bold'
+                        },
+                        color: '#2b6cb0', 
+                        padding: {
+                            bottom: 15
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: 'Input Potential (mV)',
+                            font: {
+                                size: 16, 
+                                weight: 'medium'
+                            },
+                            color: '#2c5282' 
+                        },
+                        ticks: {
+                            font: {
+                                size: 14 
+                            },
+                            color: '#4a5568' 
+                        },
+                        grid: {
+                            color: '#ebf4ff' 
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                            text: 'Firing Rate (Hz)',
+                            font: {
+                                size: 16, 
+                                weight: 'medium'
+                            },
+                            color: '#2c5282' 
+                        },
+                        ticks: {
+                            font: {
+                                size: 14 
+                            },
+                            color: '#4a5568' 
+                        },
+                        grid: {
+                            color: '#ebf4ff'
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        
+        document.getElementById('brian_progress_text').textContent = "100%";
+    }
+    
+    var brian_sim = new BrianSimulation(result_plots=[{type: 'custom', func: myplot}]);
+    
+    brian_sim.on_progress = function(progress) {
+        document.getElementById('brian_progress_bar').value = progress;
+        document.getElementById('brian_progress_text').textContent = Math.round(progress * 100) + "%";
+    };
+    
+    window.onload = function() {
+        brian_sim.init();
+    };
+    </script>
+</body>
+</html>
