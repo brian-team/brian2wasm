@@ -65,16 +65,48 @@
             background-color: #2b6cb0;
         }
         
-        progress {
-            accent-color: #4299e1; 
-            width: 200px;
-            height: 10px; 
+        .progress-container {
+            width: 300px;
+            height: 10px;
+            background-color: #e2e8f0;
+            border-radius: 5px;
             margin: 0 15px;
+            overflow: hidden;
+            position: relative;
         }
         
-        #brian_progress_text {
-            font-size: 16px;
-            color: #4299e1; 
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(to right, #4299e1, #2b6cb0);
+            border-radius: 5px;
+            transition: width 0.3s ease;
+        }
+        
+        .progress-animation {
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
+            animation: shimmer 1.5s infinite;
+            display: none;
+        }
+        
+        @keyframes shimmer {
+            0% {
+                left: -100%;
+            }
+            100% {
+                left: 100%;
+            }
+        }
+        
+        .status-text {
+            margin-left: 10px;
+            font-size: 14px;
+            color: #4a5568;
         }
     </style>
 </head>
@@ -86,9 +118,12 @@
     </p>
     
     <div class="controls">
-        <button class="run-button" onclick="brian_sim.run(); return false;">Run Simulation</button>
-        <progress id="brian_progress_bar" max="1.0" value="0.0"></progress>
-        <span id="brian_progress_text">0%</span>
+        <button class="run-button" id="run_button" onclick="startSimulation(); return false;">Run Simulation</button>
+        <div class="progress-container">
+            <div id="brian_progress_bar" class="progress-bar"></div>
+            <div id="progress_animation" class="progress-animation"></div>
+        </div>
+        <span id="status_text" class="status-text"></span>
     </div>
     
     <div class="chart-container">
@@ -96,7 +131,30 @@
     </div>
 
     <script>
+    let chartComplete = false;
+    let simComplete = false;
+    let startTime;
+    let chart;
+    
+    function startSimulation() {
+        chartComplete = false;
+        simComplete = false;
+        
+        document.getElementById('run_button').disabled = true;
+        
+        document.getElementById('brian_progress_bar').style.width = '0%';
+        document.getElementById('progress_animation').style.display = 'block';
+        document.getElementById('status_text').textContent = 'Simulating...';
+        
+        startTime = performance.now();
+        
+        brian_sim.run();
+    }
+    
     function myplot(event) {
+        simComplete = true;
+        document.getElementById('status_text').textContent = 'Rendering chart...';
+        
         const brian_results = event.data.results;
         const spikes = brian_results['spikemonitor'];
         const n = 1000;
@@ -114,7 +172,12 @@
         }
         
         const ctx = document.getElementById('brian_canvas');
-        new Chart(ctx, {
+        
+        if (chart) {
+            chart.destroy();
+        }
+        
+        chart = new Chart(ctx, {
             type: 'scatter',
             data: {
                 datasets: [{
@@ -128,6 +191,14 @@
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                    duration: 1500,
+                    easing: 'easeOutQuad',
+                    onComplete: function() {
+                        chartComplete = true;
+                        completeProgress();
+                    }
+                },
                 plugins: {
                     legend: {
                         display: false
@@ -203,15 +274,33 @@
                 }
             }
         });
-        
-        document.getElementById('brian_progress_text').textContent = "100%";
+    }
+    
+    function completeProgress() {
+        if (chartComplete && simComplete) {
+            document.getElementById('brian_progress_bar').style.width = '100%';
+            document.getElementById('progress_animation').style.display = 'none';
+            document.getElementById('status_text').textContent = 'Completed';
+            document.getElementById('run_button').disabled = false;
+        }
     }
     
     var brian_sim = new BrianSimulation(result_plots=[{type: 'custom', func: myplot}]);
     
     brian_sim.on_progress = function(progress) {
-        document.getElementById('brian_progress_bar').value = progress;
-        document.getElementById('brian_progress_text').textContent = Math.round(progress * 100) + "%";
+        let adjustedProgress = progress;
+        
+        if (progress >= 1) {
+            adjustedProgress = simComplete ? (chartComplete ? 1 : 0.9) : 0.5;
+        } else {
+            adjustedProgress = progress * 0.5;
+        }
+        
+        document.getElementById('brian_progress_bar').style.width = (adjustedProgress * 100) + '%';
+        
+        if (adjustedProgress > 0 && adjustedProgress < 1) {
+            document.getElementById('progress_animation').style.display = 'block';
+        }
     };
     
     window.onload = function() {
