@@ -16,6 +16,6 @@ group.v0 = '20*mV * i / (n-1)'
 
 monitor = SpikeMonitor(group)
 
-run(duration)
+run(duration, report='text', report_period=0.1*second)
 
 # source : https://brian2.readthedocs.io/en/stable/examples/IF_curve_LIF.html

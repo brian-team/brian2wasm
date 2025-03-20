@@ -10,33 +10,14 @@
     <style>
         body {
             font-family: 'Helvetica Neue', Arial, sans-serif;
-            color: #2c5282; 
             max-width: 900px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f9f9f9;
-            font-size: 18px;
-            line-height: 1.5;
-        }
-        
-        h1 {
-            color: #2b6cb0; 
-            text-align: center;
-            margin-bottom: 16px;
-            font-size: 30px; 
-            font-weight: 600;
-        }
-        
-        p.description {
-            text-align: center;
-            margin-bottom: 24px;
-            color: #3182ce;
-            font-size: 16px; 
-            line-height: 1.5;
         }
         
         .chart-container {
-            height: 480px; 
+            height: 480px;
             background-color: white;
             padding: 20px;
             border-radius: 8px;
@@ -44,138 +25,133 @@
             margin-bottom: 25px;
         }
         
-        .controls {
-            display: flex;
-            align-items: center;
-            margin-bottom: 25px;
+        #brian_progress_bar {
+            width: 300px;
+            height: 10px;
+            border-radius: 5px;
+            background: #e2e8f0;
+            margin-left: 10px;
+            max-width: calc(100% - 10px);
+        }
+        
+        #brian_progress_bar::-webkit-progress-value {
+            background: linear-gradient(to right, #4299e1, #2b6cb0);
+            border-radius: 5px;
         }
         
         .run-button {
-            background-color: #3182ce; 
+            background-color: #3182ce;
             color: white;
             border: none;
             padding: 10px 20px;
-            font-size: 16px; 
             border-radius: 5px;
             cursor: pointer;
-            transition: background-color 0.2s;
         }
         
-        .run-button:hover {
-            background-color: #2b6cb0;
+        .run-button:disabled {
+            background-color: #aaa;
+            cursor: not-allowed;
         }
         
-        .progress-container {
-            width: 300px;
-            height: 10px;
-            background-color: #e2e8f0;
-            border-radius: 5px;
-            margin: 0 15px;
-            overflow: hidden;
-            position: relative;
-        }
-        
-        .progress-bar {
-            width: 0%;
-            height: 100%;
-            background: linear-gradient(to right, #4299e1, #2b6cb0);
-            border-radius: 5px;
-            transition: width 0.3s ease;
-        }
-        
-        .progress-animation {
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.3), transparent);
-            animation: shimmer 1.5s infinite;
-            display: none;
-        }
-        
-        @keyframes shimmer {
-            0% {
-                left: -100%;
-            }
-            100% {
-                left: 100%;
-            }
-        }
-        
-        .status-text {
-            margin-left: 10px;
-            font-size: 14px;
+        #brian_progress_text {
+            margin-top: 10px;
             color: #4a5568;
+            margin-bottom: 10px;
+        }
+
+        .title{
+            color: #2b6cb0;
+            text-align: center;
+            margin-bottom: 16px;
+            font-size: 30px;
+            font-weight: 600;
+        }
+
+        .description{
+            text-align: center;
+            margin-bottom: 24px;
+            color: #3182ce;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+        
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            
+            .title {
+                font-size: 24px;
+            }
+            
+            .description {
+                font-size: 14px;
+            }
+            
+            .chart-container {
+                height: 300px;
+                padding: 10px;
+            }
+            
+            #brian_progress_bar {
+                width: 100%;
+                margin-left: 0;
+                margin-top: 10px;
+            }
+            
+            .run-button {
+                width: 100%;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Example: IF_curve_LIF</h1>
+
+    <h1 class="title">
+        Example: IF_curve_LIF
+    </h1>
     <p class="description">
-        Input-Frequency curve of a IF model.<br>
-        Network: 1000 unconnected integrate-and-fire neurons (leaky IF) with an input parameter v0. The input is set differently for each neuron.
+        Input-Frequency curve of a leaky integrate-and-fire (LIF) neuron model. <br>
+        Network: 1000 unconnected integrate-and-fire neurons (leaky IF) with an input parameter v0.<br>
+        The input is set differently for each neuron.
     </p>
-    
-    <div class="controls">
-        <button class="run-button" id="run_button" onclick="startSimulation(); return false;">Run Simulation</button>
-        <div class="progress-container">
-            <div id="brian_progress_bar" class="progress-bar"></div>
-            <div id="progress_animation" class="progress-animation"></div>
-        </div>
-        <span id="status_text" class="status-text"></span>
-    </div>
-    
+
+    <button class="run-button" id="brian_run_button" onclick="brian_sim.run(); return false;">Run Simulation</button>
+    <progress id="brian_progress_bar" max="1.0" value="0.0"></progress>
+    <div id="brian_progress_text"></div>
+
+
     <div class="chart-container">
         <canvas id="brian_canvas"></canvas>
     </div>
 
     <script>
-    let chartComplete = false;
-    let simComplete = false;
-    let startTime;
     let chart;
     
-    function startSimulation() {
-        chartComplete = false;
-        simComplete = false;
-        
-        document.getElementById('run_button').disabled = true;
-        
-        document.getElementById('brian_progress_bar').style.width = '0%';
-        document.getElementById('progress_animation').style.display = 'block';
-        document.getElementById('status_text').textContent = 'Simulating...';
-        
-        startTime = performance.now();
-        
-        brian_sim.run();
-    }
-    
+    var brian_sim = new BrianSimulation(result_plots=[{type: 'custom', func: myplot}]);
+
     function myplot(event) {
-        simComplete = true;
-        document.getElementById('status_text').textContent = 'Rendering chart...';
         
-        const brian_results = event.data.results;
-        const spikes = brian_results['spikemonitor'];
+        const results = event.data.results;
+        const spikes = results.spikemonitor;
         const n = 1000;
-        const duration = 1.0; 
+        const duration = 1.0;
         
-        let firing_rates = Array(n).fill(0);
+        // Calculate firing rates
+        let firing_rates = new Array(n).fill(0);
         for (let i = 0; i < spikes.i.length; i++) {
-            firing_rates[spikes.i[i]] += 1;
+            firing_rates[spikes.i[i]]++;
         }
         
-        let data = [];
-        for (let i = 0; i < n; i++) {
-            const v0 = 20 * i / (n-1);
-            data.push({x: v0, y: firing_rates[i] / duration});
-        }
+        // Prepare the chart data
+        const data = firing_rates.map((count, index) => ({
+            x: 20 * index / (n-1),
+            y: count / duration
+        }));
         
+        // Update chart
         const ctx = document.getElementById('brian_canvas');
-        
-        if (chart) {
-            chart.destroy();
-        }
+        if (chart) chart.destroy();
         
         chart = new Chart(ctx, {
             type: 'scatter',
@@ -183,128 +159,37 @@
                 datasets: [{
                     label: 'Firing Rate',
                     data: data,
-                    backgroundColor: '#4299e1', 
-                    pointRadius: 3.5, 
-                    borderColor: '#3182ce',
+                    backgroundColor: '#4299e1',
+                    pointRadius: 3.5,
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
                 animation: {
-                    duration: 1500,
-                    easing: 'easeOutQuad',
-                    onComplete: function() {
-                        chartComplete = true;
-                        completeProgress();
+                    onComplete: () => {
+                        // Finalize progress when chart renders
+                        document.getElementById('brian_progress_bar').value = 1;
+                        document.getElementById('brian_progress_text').textContent = 'Simulation complete!';
+                        document.getElementById('brian_run_button').disabled = false;
                     }
                 },
                 plugins: {
-                    legend: {
-                        display: false
-                    },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return `Input: ${context.parsed.x.toFixed(1)} mV, Rate: ${context.parsed.y.toFixed(1)} Hz`;
-                            }
-                        },
-                        titleFont: {
-                            size: 16
-                        },
-                        bodyFont: {
-                            size: 14
-                        }
-                    },
                     title: {
                         display: true,
-                        text: 'Neuron Firing Rate vs. Input Current',
-                        font: {
-                            size: 20, 
-                            weight: 'bold'
-                        },
-                        color: '#2b6cb0', 
-                        padding: {
-                            bottom: 15
-                        }
+                        text: 'Firing Rate vs Input Potential'
                     }
                 },
                 scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Input Potential (mV)',
-                            font: {
-                                size: 16, 
-                                weight: 'medium'
-                            },
-                            color: '#2c5282' 
-                        },
-                        ticks: {
-                            font: {
-                                size: 14 
-                            },
-                            color: '#4a5568' 
-                        },
-                        grid: {
-                            color: '#ebf4ff' 
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: 'Firing Rate (Hz)',
-                            font: {
-                                size: 16, 
-                                weight: 'medium'
-                            },
-                            color: '#2c5282' 
-                        },
-                        ticks: {
-                            font: {
-                                size: 14 
-                            },
-                            color: '#4a5568' 
-                        },
-                        grid: {
-                            color: '#ebf4ff'
-                        },
-                        beginAtZero: true
-                    }
+                    x: { title: { display: true, text: 'Input Potential (mV)' } },
+                    y: { title: { display: true, text: 'Firing Rate (Hz)' } }
                 }
             }
         });
     }
-    
-    function completeProgress() {
-        if (chartComplete && simComplete) {
-            document.getElementById('brian_progress_bar').style.width = '100%';
-            document.getElementById('progress_animation').style.display = 'none';
-            document.getElementById('status_text').textContent = 'Completed';
-            document.getElementById('run_button').disabled = false;
-        }
-    }
-    
-    var brian_sim = new BrianSimulation(result_plots=[{type: 'custom', func: myplot}]);
-    
-    brian_sim.on_progress = function(progress) {
-        let adjustedProgress = progress;
-        
-        if (progress >= 1) {
-            adjustedProgress = simComplete ? (chartComplete ? 1 : 0.9) : 0.5;
-        } else {
-            adjustedProgress = progress * 0.5;
-        }
-        
-        document.getElementById('brian_progress_bar').style.width = (adjustedProgress * 100) + '%';
-        
-        if (adjustedProgress > 0 && adjustedProgress < 1) {
-            document.getElementById('progress_animation').style.display = 'block';
-        }
-    };
-    
+
     window.onload = function() {
-        brian_sim.init();
+        brian_sim.init();       
     };
     </script>
 </body>
