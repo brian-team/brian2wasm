@@ -285,14 +285,11 @@ void _write_arrays()
 	outfile_{{varname}}.open(results_dir + "{{get_array_filename(var)}}", ios::binary | ios::out);
 	if(outfile_{{varname}}.is_open())
 	{
-        if (! {{varname}}.empty() )
-        {
 			outfile_{{varname}}.write(reinterpret_cast<char*>(&{{varname}}[0]), {{varname}}.size()*sizeof({{varname}}[0]));
 		    outfile_{{varname}}.close();
 			EM_ASM({
 				add_results('{{var.owner.name}}', '{{var.name}}', '{{c_data_type(var.dtype)}}', UTF8ToString($0) + '{{get_array_filename(var)}}', $1);
 			}, results_dir.c_str(), {{varname}}.size());
-		}
 	} else
 	{
 		std::cout << "Error writing output file for {{varname}}." << endl;
