@@ -8,7 +8,7 @@ function add_results(owner, varname, dtype, array_filename, n1, n2 = 0) {
        array_class = Float64Array;
     } else if (dtype == 'float') {
         array_class = Float32Array;
-    } else if (dtype == 'int32_t' || dtype == 'char') {
+    } else if (dtype == 'int32_t') {
         array_class = Int32Array;
     } else if (dtype == 'int64_t') {
         array_class = BigInt64Array;
