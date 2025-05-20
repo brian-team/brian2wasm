@@ -10,6 +10,6 @@ readme = "README.md"
 requires-python = ">=3.10"
 keywords = ["wasm", "brian"]
 dependencies = [
-    "brian2==2.8.0.4",
-    "setuptools<75",
+    "brian2==2.9.0",
+    "setuptools",
 ]
