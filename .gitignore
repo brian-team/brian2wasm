@@ -1,2 +1,4 @@
 examples/output/
 */__pycache__/
+.idea
+brian2wasm.egg-info
