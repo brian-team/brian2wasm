@@ -7,7 +7,7 @@ name = "brian2wasm"
 version = "0.0.1"
 description = "A WebAssembly backend for the Brian 2 simulator"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = "==3.13"
 keywords = ["wasm", "brian"]
 dependencies = [
     "brian2==2.9.0",
@@ -17,3 +17,19 @@ dependencies = [
 [project.scripts]
 brian2wasm = "brian2wasm.__main__:main"
 
+[tool.setuptools.package-data]
+brian2wasm = ["emsdk_setup.sh"]
+
+[tool.pixi.dependencies]
+emsdk = "*"
+
+[tool.pixi.pypi-dependencies]
+brian2wasm = { git = "https://github.com/PalashChitnavis/brian2wasm", rev = "pixi" }
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64"]
+
+[tool.pixi.activation]
+env = { PYTHON_VERSION = "3.13" }
+scripts = [".pixi/envs/default/lib/python3.13/site-packages/brian2wasm/emsdk_setup.sh"]
