@@ -17,4 +17,3 @@ dependencies = [
 [project.scripts]
 brian2wasm = "brian2wasm.__main__:main"
 
-packages = ["brian2wasm"]
