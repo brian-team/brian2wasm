@@ -1,0 +1,74 @@
+name: Test PR on Linux and macOS
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+      fail-fast: false
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Install Pixi
+      - name: Install Pixi
+        uses: prefix-dev/setup-pixi@v0.8.10
+        with:
+          pixi-version: v0.25.0
+          cache: true
+          auth-host: prefix.dev
+          auth-token: ${{ secrets.PREFIX_DEV_TOKEN }}
+          activate-environment: true
+          log-level: vvv
+
+      # Verify Pixi installation
+      - name: Verify Pixi version
+        run: pixi --version
+
+      # Run pixi install
+      - name: Install dependencies
+        run: pixi install --locked
+
+      # Run setup
+      - name: Run setup
+        run: pixi run setup
+
+      # Check tool (emcc emrun emsdk python brian2wasm) availability with more detailed output
+      - name: Verify tool availability
+        run: |
+          pixi shell --command '
+            echo "### Tool Verification ###"
+            echo "Current PATH: $PATH"
+            echo ""
+            
+            tools=("emcc" "emrun" "emsdk" "python" "brian2wasm")
+            all_found=true
+            
+            for tool in "${tools[@]}"; do
+              if command -v "$tool" >/dev/null 2>&1; then
+                echo "✅ $tool found at: $(command -v "$tool")"
+                echo "   Version: $($tool --version 2>&1 | head -n 1 || echo "Version check failed")"
+              else
+                echo "❌ $tool not found in PATH"
+                all_found=false
+              fi
+              echo ""
+            done
+            
+            if ! $all_found; then
+              echo "Error: Some required tools are missing"
+              exit 1
+            else
+              echo "All tools are available"
+            fi
+          '

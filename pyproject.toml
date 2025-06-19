@@ -30,6 +30,9 @@ brian2wasm = { git = "https://github.com/PalashChitnavis/brian2wasm", rev = "pix
 channels = ["conda-forge"]
 platforms = ["linux-64", "osx-64", "osx-arm64"]
 
+[tool.pixi.tasks]
+setup = "emsdk install latest && emsdk activate latest"
+
 [tool.pixi.activation]
 env = { PYTHON_VERSION = "3.13" }
 scripts = [".pixi/envs/default/lib/python3.13/site-packages/brian2wasm/emsdk_setup.sh"]
