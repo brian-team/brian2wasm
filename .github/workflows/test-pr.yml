@@ -1,9 +1,9 @@
 name: Test PR on Linux and macOS
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - pixi
 
 jobs:
   test:
@@ -34,6 +34,10 @@ jobs:
       # Verify Pixi installation
       - name: Verify Pixi version
         run: pixi --version
+
+      # Add your authentication step(s) here
+      - name: Authenticate with private channels
+        run: pixi auth login repo.prefix.dev --token ${{ secrets.PREFIX_DEV_TOKEN }}
 
       # Run pixi install
       - name: Install dependencies
