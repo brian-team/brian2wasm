@@ -25,7 +25,7 @@ jobs:
         uses: prefix-dev/setup-pixi@v0.8.10
         with:
           pixi-version: v0.25.0
-          cache: true
+          cache: false
           auth-host: prefix.dev
           auth-token: ${{ secrets.PREFIX_DEV_TOKEN }}
           activate-environment: true
@@ -34,10 +34,6 @@ jobs:
       # Verify Pixi installation
       - name: Verify Pixi version
         run: pixi --version
-
-      # Add your authentication step(s) here
-      - name: Authenticate with private channels
-        run: pixi auth login repo.prefix.dev --token ${{ secrets.PREFIX_DEV_TOKEN }}
 
       # Run pixi install
       - name: Install dependencies
