@@ -1,7 +1,7 @@
 name: Test PR on Linux and macOS
 
 on:
-  push:
+  pull_request:
     branches:
       - pixi
 
@@ -43,32 +43,7 @@ jobs:
       - name: Run setup
         run: pixi run setup
 
-      # Check tool (emcc emrun emsdk python brian2wasm) availability with more detailed output
-      - name: Verify tool availability
-        run: |
-          pixi shell --command '
-            echo "### Tool Verification ###"
-            echo "Current PATH: $PATH"
-            echo ""
-            
-            tools=("emcc" "emrun" "emsdk" "python" "brian2wasm")
-            all_found=true
-            
-            for tool in "${tools[@]}"; do
-              if command -v "$tool" >/dev/null 2>&1; then
-                echo "✅ $tool found at: $(command -v "$tool")"
-                echo "   Version: $($tool --version 2>&1 | head -n 1 || echo "Version check failed")"
-              else
-                echo "❌ $tool not found in PATH"
-                all_found=false
-              fi
-              echo ""
-            done
-            
-            if ! $all_found; then
-              echo "Error: Some required tools are missing"
-              exit 1
-            else
-              echo "All tools are available"
-            fi
-          '
+      # Check Dependencies
+      - name: Check dependencies
+        run: which emcc emrun brian2wasm emsdk
+        shell: pixi run bash -e {0}
