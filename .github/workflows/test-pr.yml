@@ -3,7 +3,7 @@ name: Test PR on Linux and macOS
 on:
   pull_request:
     branches:
-      - pixi
+      - main
 
 jobs:
   test:
