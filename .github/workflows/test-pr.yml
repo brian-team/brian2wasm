@@ -17,8 +17,10 @@ jobs:
 
     steps:
       # Checkout the repository
-      - name: Checkout code
+      - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
 
       # Install Pixi
       - name: Install pixi
@@ -41,4 +43,12 @@ jobs:
       # Check Dependencies
       - name: Check dependencies
         run: which emcc emrun brian2wasm emsdk
+        shell: pixi run bash -e {0}
+
+      # Run an example and check output
+      - name: Run example and verify output files
+        run: |
+          cd examples
+          python -m brian2wasm brunel_hakim1999.py --no-server
+          ls brunel_hakim1999/{brian.js,index.html,wasm_module.{js,wasm},worker.js}
         shell: pixi run bash -e {0}
