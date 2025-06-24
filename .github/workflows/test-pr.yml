@@ -1,9 +1,9 @@
 name: Test PR on Linux and macOS
 
 on:
-  pull_request:
+  push:
     branches:
-      - main
+      - pixi
 
 jobs:
   test:
