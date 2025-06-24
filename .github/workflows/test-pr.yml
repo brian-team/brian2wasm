@@ -16,11 +16,13 @@ jobs:
       fail-fast: false
 
     steps:
-      # Checkout the repository
-      - name: Checkout
-        uses: actions/checkout@v4
+      # Clone the repository
+      - name: Clone repository
+        uses: actions/checkout@v2
         with:
-          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+          ref: ${{github.event.pull_request.head.ref}}
+          repository: ${{github.event.pull_request.head.repo.full_name}}
 
       # Install Pixi
       - name: Install pixi
