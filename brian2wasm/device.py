@@ -2,6 +2,7 @@
 Module implementing the WASM/JS "standalone" device.
 """
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -105,6 +106,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             linker_debug_flags = ''
         compiler_flags = compiler_flags.replace("-march=native", "")  # don't pass -march to emcc
         linker_flags = linker_flags.replace("--enable-new-dtags,", "")  # don't pass --enable-new-dtags to wasm-ld
+        linker_flags = re.sub(r'-R\S+', '', linker_flags)  # remove unsupported -R<path> flags for wasm-ld
         source_files = ' '.join(sorted(writer.source_files))
         preamble_file = os.path.join(os.path.dirname(__file__), 'templates', 'pre.js')
         emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
