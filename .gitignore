@@ -1,4 +1,9 @@
 examples/output/
 */__pycache__/
 .idea
-brian2wasm.egg-info
+
+.pixi
+*.egg-info
+pixi.lock
+brian2wasm/_version.py
+/dist
