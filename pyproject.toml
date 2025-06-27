@@ -1,14 +1,17 @@
 [build-system]
-requires = ["setuptools"]
+requires = [
+    "setuptools<69",
+    "wheel",
+    "setuptools_scm[toml]>=6.2"
+]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "brian2wasm"
-version = "0.0.1"
+dynamic = ["version", "readme"]
 description = "A WebAssembly backend for the Brian 2 simulator"
-readme = "README.md"
-requires-python = "==3.13"
 keywords = ["wasm", "brian"]
+requires-python = ">=3.10"
 dependencies = [
     "brian2==2.9.0",
     "setuptools",
@@ -38,3 +41,24 @@ scripts = ["./brian2wasm/emsdk_setup.sh"]
 
 [tool.pixi.target.win.activation]
 scripts = ["./brian2wasm/emsdk_setup.bat"]
+
+[project.urls]
+Homepage = "https://github.com/brian-team/brian2wasm"
+Source = "https://github.com/brian-team/brian2wasm"
+Tracker = "https://github.com/brian-team/brian2wasm/issues"
+
+[tool.setuptools]
+zip-safe = false
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["brian2wasm*"]
+
+[tool.setuptools.dynamic]
+readme = {file = "README.md", content-type = "text/markdown"}
+
+[tool.setuptools_scm]
+version_scheme = "post-release"
+local_scheme = "no-local-version"
+write_to = "brian2wasm/_version.py"
+fallback_version = "unknown"
