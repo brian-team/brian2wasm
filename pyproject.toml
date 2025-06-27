@@ -20,6 +20,28 @@ dependencies = [
 [project.scripts]
 brian2wasm = "brian2wasm.__main__:main"
 
+[tool.setuptools.package-data]
+brian2wasm = ["emsdk_setup.sh", "emsdk_setup.bat"]
+
+[tool.pixi.dependencies]
+emsdk = "*"
+
+[tool.pixi.pypi-dependencies]
+brian2wasm = { git = "https://github.com/PalashChitnavis/brian2wasm", rev = "pixi" }
+
+[tool.pixi.project]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+
+[tool.pixi.tasks]
+setup = "emsdk install latest && emsdk activate latest"
+
+[tool.pixi.target.unix.activation]
+scripts = ["./brian2wasm/emsdk_setup.sh"]
+
+[tool.pixi.target.win.activation]
+scripts = ["./brian2wasm/emsdk_setup.bat"]
+
 [project.urls]
 Homepage = "https://github.com/brian-team/brian2wasm"
 Source = "https://github.com/brian-team/brian2wasm"
