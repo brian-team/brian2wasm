@@ -1,10 +1,6 @@
 name: Test PR on Linux and macOS
 
-on:
-  pull_request:
-    branches:
-      - main
-      - pixi
+on: [pull_request]
 
 jobs:
   test:
