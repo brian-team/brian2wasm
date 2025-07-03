@@ -1,0 +1,35 @@
+# win_makefile_emscripten – for nmake + Emscripten
+# -------------------------------------------------
+
+PROGRAM=wasm_module.js
+
+EMCC=emcc
+EMXX=em++
+
+SRCS={{source_files}}
+# turn   "dir/foo.cpp dir/bar.cpp"  into  "foo.o bar.o"
+OBJS={% for f in source_files.split() %}{{f|replace(".cpp","")}}.o {% endfor %}
+
+# ----------- flags -------------------------------------------------
+OPTIM={{compiler_flags}} -O3 -ffast-math -fno-finite-math-only -std=c++11
+CXXFLAGS=$(OPTIM) -I. {{openmp_pragma('compilation')}} {{compiler_debug_flags}} -fwasm-exceptions
+LDFLAGS=$(OPTIM) {{linker_flags}} {{linker_debug_flags}} -fwasm-exceptions -sALLOW_MEMORY_GROWTH
+
+# ------------------------------------------------------------------
+all: $(PROGRAM)
+
+clean:
+	del /Q *.o *.obj *.wasm *.js *.html 2>NUL
+
+# one explicit rule for every .cpp
+{% for f in source_files.split() %}
+{{f|replace(".cpp","")}}.o: {{f}}
+	$(EMXX) -c {{f}} -o $@ $(CXXFLAGS)
+{% endfor %}
+
+$(PROGRAM): $(OBJS) {{preamble_file}}
+	$(EMXX) $(OBJS) $(LDFLAGS) {{preloads}} --pre-js {{preamble_file}} \
+        -sVERBOSE=1 -sMODULARIZE=1 -sENVIRONMENT=worker \
+        -sEXPORTED_FUNCTIONS=_main -sEXPORTED_RUNTIME_METHODS=callMain \
+        -sINVOKE_RUN=0 -o $(PROGRAM)
+
