@@ -11,6 +11,11 @@ def main():
         "script",
         help="Path to the Python script to run"
     )
+    parser.add_argument(
+        "--no-server",
+        action="store_true",
+        help="Generate files without starting the web server"
+    )
     args = parser.parse_args()
 
     script_path = args.script
@@ -59,6 +64,8 @@ def main():
 
     try:
         # Execute the modified script in memory with __file__ set
+        if args.no_server:
+            os.environ['BRIAN2WASM_NO_SERVER'] = '1'
         print(f"Script path: {os.path.abspath(script_path)}")
         print(f"Directory: {script_dir}")
         exec_globals = {'__name__': '__main__', '__file__': os.path.abspath(script_path)}
