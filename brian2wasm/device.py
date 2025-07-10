@@ -5,7 +5,10 @@ import os
 import platform
 import re
 import shutil
+import tempfile
 import time
+from collections import Counter
+from distutils import ccompiler
 
 import numpy as np
 
@@ -16,7 +19,9 @@ from brian2.synapses import Synapses
 from brian2.utils.logger import get_logger
 from brian2.utils.filetools import in_directory
 from brian2.devices import all_devices
-from brian2.devices.cpp_standalone.device import CPPStandaloneDevice
+from brian2.devices.cpp_standalone.device import CPPStandaloneDevice, CPPWriter
+from brian2.utils.filetools import ensure_directory
+from brian2.codegen.cpp_prefs import get_compiler_and_args
 
 __all__ = []
 
@@ -94,71 +99,62 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         )
         writer.write("objects.*", arr_tmp)
 
-    def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug): 
-        preloads = ' '.join(f'--preload-file static_arrays/{static_array}'
-                            for static_array in sorted(self.static_arrays.keys()))
-        rm_cmd = 'rm $(OBJS) $(PROGRAM) $(DEPS)'
-        if debug:
-            compiler_debug_flags = '-g -DDEBUG'
-            linker_debug_flags = '-g'
-        else:
-            compiler_debug_flags = ''
-            linker_debug_flags = ''
-        compiler_flags = compiler_flags.replace("-march=native", "")  # don't pass -march to emcc
-        linker_flags = linker_flags.replace("--enable-new-dtags,", "")  # don't pass --enable-new-dtags to wasm-ld
-        linker_flags = re.sub(r'-R\S+', '', linker_flags)  # remove unsupported -R<path> flags for wasm-ld
-        
-        # drop MSVC-specific options emcc doesn't understand
-        compiler_flags = ' '.join(tok for tok in compiler_flags.split()
-                          if not tok.startswith('/'))
+    def generate_makefile(
+            self,
+            writer,
+            compiler,
+            compiler_flags,
+            linker_flags,
+            nb_threads,
+            debug,
+    ):
 
-        linker_flags = ' '.join(tok for tok in linker_flags.split() 
-                        if not (tok.startswith('/')         
-                                or tok.lower().endswith('.lib')))
-        
-        source_files = ' '.join(sorted(writer.source_files))
-        preamble_file = os.path.join(os.path.dirname(__file__), 'templates', 'pre.js')
-        
+        preload_flags = " ".join(f"--preload-file static_arrays/{name}"
+                                 for name in sorted(self.static_arrays))
+        rm_cmd = "rm $(OBJS) $(PROGRAM) $(DEPS)"
+        compiler_dbg = "-g -DDEBUG" if debug else ""
+        linker_dbg = "-g" if debug else ""
+
+        source_files = " ".join(sorted(writer.source_files))
+        header_files = " ".join(sorted(writer.header_files))
+        preamble_path = os.path.join(os.path.dirname(__file__), "templates", "pre.js")
+
         emsdk_path = (
-            prefs.devices.wasm_standalone.emsdk_directory
-            or os.environ.get("EMSDK")
-            or os.environ.get("CONDA_EMSDK_DIR")
-            or ""
+                prefs.devices.wasm_standalone.emsdk_directory
+                or os.environ.get("EMSDK")
+                or os.environ.get("CONDA_EMSDK_DIR")
+                or ""
         )
-
         emsdk_version = prefs.devices.wasm_standalone.emsdk_version
-        if not emsdk_path:
-            # Check whether EMSDK is already activated
-            if not(os.environ.get("EMSDK", "")) or os.environ["EMSDK"] not in os.environ["PATH"]:
-                raise ValueError("Please provide the path to the emsdk directory in the preferences")
-        if os.name == 'nt':
-            makefile_tmp = self.code_object_class().templater.win_makefile(None, None,
-                source_files=source_files,
-                header_files=' '.join(sorted(writer.header_files)),
-                compiler_flags=compiler_flags,
-                compiler_debug_flags=compiler_debug_flags,
-                linker_debug_flags=linker_debug_flags,
-                linker_flags=linker_flags,
-                preloads=preloads,
-                preamble_file=preamble_file,
-                rm_cmd=rm_cmd,
-                emsdk_path=emsdk_path,
-                emsdk_version=emsdk_version)
-        else:
-            makefile_tmp = self.code_object_class().templater.makefile(None, None,
+
+        if not emsdk_path and (
+                not os.environ.get("EMSDK") or os.environ["EMSDK"] not in os.environ["PATH"]
+        ):
+            raise ValueError(
+                "Please provide the path to the EMSDK directory in the preferences."
+            )
+
+        templater = self.code_object_class().templater
+        makefile_fn = templater.win_makefile if os.name == "nt" else templater.makefile
+        output_name = "win_makefile" if os.name == "nt" else "makefile"
+
+        makefile_content = makefile_fn(
+            None,
+            None,
             source_files=source_files,
-            header_files=' '.join(sorted(writer.header_files)),
+            header_files=header_files,
             compiler_flags=compiler_flags,
-            compiler_debug_flags=compiler_debug_flags,
-            linker_debug_flags=linker_debug_flags,
+            compiler_debug_flags=compiler_dbg,
+            linker_debug_flags=linker_dbg,
             linker_flags=linker_flags,
-            preloads=preloads,
-            preamble_file=preamble_file,
+            preloads=preload_flags,
+            preamble_file=preamble_path,
             rm_cmd=rm_cmd,
             emsdk_path=emsdk_path,
-            emsdk_version=emsdk_version)
-        outputfile_name = 'win_makefile' if os.name == 'nt' else 'makefile'
-        writer.write(outputfile_name, makefile_tmp)
+            emsdk_version=emsdk_version,
+        )
+
+        writer.write(output_name, makefile_content)
 
     def copy_source_files(self, writer, directory):
         super(WASMStandaloneDevice, self).copy_source_files(writer, directory)
@@ -398,7 +394,230 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
     def build(self, html_file=None, html_content=None, **kwds):
         self.build_options.update({'html_file': html_file,
                                    'html_content': html_content})
-        super(WASMStandaloneDevice, self).build(**kwds)
+
+        direct_call = kwds.get('direct_call', True)
+        additional_source_files = kwds.get('additional_source_files', [])
+        run_args = kwds.get('run_args', [])
+        directory = kwds.get('directory') or tempfile.mkdtemp(prefix="brian_standalone_")
+        run = kwds.get('run', True)
+        debug = kwds.get('debug', False)
+        clean = kwds.get('clean', False)
+        with_output = kwds.get('with_output', True)
+        results_directory = kwds.get('results_directory', 'results')
+        compile = kwds.get('compile', True)
+
+        if self.build_on_run and direct_call:
+            raise RuntimeError(
+                "You used set_device with build_on_run=True "
+                "(the default option), which will automatically "
+                "build the simulation at the first encountered "
+                "run call - do not call device.build manually "
+                "in this case. If you want to call it manually, "
+                "e.g. because you have multiple run calls, use "
+                "set_device with build_on_run=False."
+            )
+        if self.has_been_run:
+            raise RuntimeError(
+                "The network has already been built and run "
+                "before. To build several simulations in "
+                'the same script, call "device.reinit()" '
+                'and "device.activate()". Note that you '
+                "will have to set build options (e.g. the "
+                "directory) and defaultclock.dt again."
+            )
+
+        self.project_dir = directory
+        ensure_directory(directory)
+        if os.path.isabs(results_directory):
+            raise TypeError(
+                "The 'results_directory' argument needs to be a relative path but was "
+                f"'{results_directory}'."
+            )
+        # Translate path to absolute path which ends with /
+        self.results_dir = os.path.join(
+            os.path.abspath(os.path.join(directory, results_directory)), ""
+        )
+
+        # Determine compiler flags and directories
+        compiler, default_extra_compile_args, default_extra_link_args = self.get_compiler_and_args_wasm()
+        extra_compile_args = self.extra_compile_args + default_extra_compile_args
+        extra_link_args = self.extra_link_args + default_extra_link_args
+
+        codeobj_define_macros = [
+            macro
+            for codeobj in self.code_objects.values()
+            for macro in codeobj.compiler_kwds.get("define_macros", [])
+        ]
+        define_macros = (
+            self.define_macros
+            + prefs["codegen.cpp.define_macros"]
+            + codeobj_define_macros
+        )
+
+        codeobj_include_dirs = [
+            include_dir
+            for codeobj in self.code_objects.values()
+            for include_dir in codeobj.compiler_kwds.get("include_dirs", [])
+        ]
+        include_dirs = (
+            self.include_dirs + prefs["codegen.cpp.include_dirs"] + codeobj_include_dirs
+        )
+
+        codeobj_library_dirs = [
+            library_dir
+            for codeobj in self.code_objects.values()
+            for library_dir in codeobj.compiler_kwds.get("library_dirs", [])
+        ]
+        library_dirs = (
+            self.library_dirs + prefs["codegen.cpp.library_dirs"] + codeobj_library_dirs
+        )
+
+        codeobj_runtime_dirs = [
+            runtime_dir
+            for codeobj in self.code_objects.values()
+            for runtime_dir in codeobj.compiler_kwds.get("runtime_library_dirs", [])
+        ]
+        runtime_library_dirs = (
+            self.runtime_library_dirs
+            + prefs["codegen.cpp.runtime_library_dirs"]
+            + codeobj_runtime_dirs
+        )
+
+        codeobj_libraries = [
+            library
+            for codeobj in self.code_objects.values()
+            for library in codeobj.compiler_kwds.get("libraries", [])
+        ]
+        libraries = self.libraries + prefs["codegen.cpp.libraries"] + codeobj_libraries
+
+        compiler_obj = ccompiler.new_compiler(compiler=compiler)
+
+        # Distutils does not use the shell, so it does not need to quote filenames/paths
+        # Since we include the compiler flags in the makefile, we need to quote them
+        include_dirs = [f'"{include_dir}"' for include_dir in include_dirs]
+        library_dirs = [f'"{library_dir}"' for library_dir in library_dirs]
+        runtime_library_dirs = [
+            f'"{runtime_dir}"' for runtime_dir in runtime_library_dirs
+        ]
+
+        compiler_flags = (
+            ccompiler.gen_preprocess_options(define_macros, include_dirs)
+            + extra_compile_args
+        )
+
+        linker_flags = (
+            ccompiler.gen_lib_options(
+                compiler_obj,
+                library_dirs=library_dirs,
+                runtime_library_dirs=runtime_library_dirs,
+                libraries=libraries,
+            )
+            + extra_link_args
+        )
+
+        codeobj_source_files = [
+            source_file
+            for codeobj in self.code_objects.values()
+            for source_file in codeobj.compiler_kwds.get("sources", [])
+        ]
+        additional_source_files += codeobj_source_files
+
+        for d in ["code_objects", "results", "static_arrays"]:
+            ensure_directory(os.path.join(directory, d))
+
+        self.writer = CPPWriter(directory)
+
+        # Get the number of threads if specified in an openmp context
+        nb_threads = prefs.devices.cpp_standalone.openmp_threads
+        # If the number is negative, we need to throw an error
+        if nb_threads < 0:
+            raise ValueError("The number of OpenMP threads can not be negative !")
+
+        logger.diagnostic(
+            "Writing C++ standalone project to directory "
+            f"'{os.path.normpath(directory)}'."
+        )
+
+        self.check_openmp_compatible(nb_threads)
+
+        self.write_static_arrays(directory)
+
+        # Check that all names are globally unique
+        names = [obj.name for net in self.networks for obj in net.sorted_objects]
+        non_unique_names = [name for name, count in Counter(names).items() if count > 1]
+        if len(non_unique_names):
+            formatted_names = ", ".join(f"'{name}'" for name in non_unique_names)
+            raise ValueError(
+                "All objects need to have unique names in "
+                "standalone mode, the following name(s) were used "
+                f"more than once: {formatted_names}"
+            )
+
+        self.generate_objects_source(
+            self.writer,
+            self.arange_arrays,
+            self.synapses,
+            self.static_array_specs,
+            self.networks,
+            self.timed_arrays,
+        )
+        self.generate_main_source(self.writer)
+        self.generate_codeobj_source(self.writer)
+        self.generate_network_source(self.writer, compiler)
+        self.generate_synapses_classes_source(self.writer)
+        self.generate_run_source(self.writer)
+        self.copy_source_files(self.writer, directory)
+
+        self.writer.source_files.update(additional_source_files)
+
+        self.generate_makefile(
+            self.writer,
+            compiler,
+            compiler_flags=" ".join(compiler_flags),
+            linker_flags=" ".join(linker_flags),
+            nb_threads=nb_threads,
+            debug=debug,
+        )
+
+        if compile:
+            self.compile_source(directory, compiler, debug, clean)
+            if run:
+                self.run(directory, results_directory, with_output, run_args)
+        time_measurements = {
+            "'make clean'": self.timers["compile"]["clean"],
+            "'make'": self.timers["compile"]["make"],
+            "running 'main'": self.timers["run_binary"],
+        }
+        logged_times = [
+            f"{task}: {measurement:.2f}s"
+            for task, measurement in time_measurements.items()
+            if measurement is not None
+        ]
+        logger.debug(f"Time measurements: {', '.join(logged_times)}")
+
+    def get_compiler_and_args_wasm(self):
+        compiler, compile_flags = get_compiler_and_args()
+        link_flags = prefs["codegen.cpp.extra_link_args"][:]
+
+        compile_flags = [
+            tok for tok in compile_flags
+            if not (
+                    tok.startswith("/") or
+                    tok.startswith("-march")
+            )
+        ]
+
+        link_flags = [
+            tok for tok in link_flags
+            if not (
+                    tok.startswith("/") or
+                    tok.lower().endswith(".lib") or
+                    tok in ("--enable-new-dtags", "--enable-new-dtags,") or
+                    tok.startswith("-R")
+            )
+        ]
+
+        return compiler, compile_flags, link_flags
 
 
 wasm_standalone_device = WASMStandaloneDevice()
