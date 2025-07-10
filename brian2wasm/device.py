@@ -38,6 +38,16 @@ prefs.register_preferences(
         docs='''Version of the emsdk to use, defaults to "latest"''',
         default="latest"
     ),
+    emcc_compile_args=BrianPreference(
+        default=[
+            "-w"
+        ],
+        docs="Extra flags appended to every emcc compile command",
+    ),
+    emcc_link_args=BrianPreference(
+        default=[],
+        docs="Extra flags passed at link time",
+    ),
 )
 
 
@@ -438,136 +448,77 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             os.path.abspath(os.path.join(directory, results_directory)), ""
         )
 
-        # Determine compiler flags and directories
-        compiler, default_extra_compile_args, default_extra_link_args = self.get_compiler_and_args_wasm()
-        extra_compile_args = self.extra_compile_args + default_extra_compile_args
-        extra_link_args = self.extra_link_args + default_extra_link_args
+        compiler = "emcc"
+        extra_compile_args = self.extra_compile_args + prefs["devices.wasm_standalone.emcc_compile_args"]
+        extra_link_args = self.extra_link_args + prefs["devices.wasm_standalone.emcc_link_args"]
 
-        codeobj_define_macros = [
-            macro
-            for codeobj in self.code_objects.values()
-            for macro in codeobj.compiler_kwds.get("define_macros", [])
-        ]
         define_macros = (
             self.define_macros
             + prefs["codegen.cpp.define_macros"]
-            + codeobj_define_macros
+            + [m for c in self.code_objects.values() for m in c.compiler_kwds.get("define_macros", [])]
         )
-
-        codeobj_include_dirs = [
-            include_dir
-            for codeobj in self.code_objects.values()
-            for include_dir in codeobj.compiler_kwds.get("include_dirs", [])
-        ]
         include_dirs = (
-            self.include_dirs + prefs["codegen.cpp.include_dirs"] + codeobj_include_dirs
+            self.include_dirs
+            + prefs["codegen.cpp.include_dirs"]
+            + [d for c in self.code_objects.values() for d in c.compiler_kwds.get("include_dirs", [])]
         )
-
-        codeobj_library_dirs = [
-            library_dir
-            for codeobj in self.code_objects.values()
-            for library_dir in codeobj.compiler_kwds.get("library_dirs", [])
-        ]
         library_dirs = (
-            self.library_dirs + prefs["codegen.cpp.library_dirs"] + codeobj_library_dirs
+            self.library_dirs
+            + prefs["codegen.cpp.library_dirs"]
+            + [d for c in self.code_objects.values() for d in c.compiler_kwds.get("library_dirs", [])]
+        )
+        libraries = (
+            self.libraries
+            + prefs["codegen.cpp.libraries"]
+            + [l for c in self.code_objects.values() for l in c.compiler_kwds.get("libraries", [])]
         )
 
-        codeobj_runtime_dirs = [
-            runtime_dir
-            for codeobj in self.code_objects.values()
-            for runtime_dir in codeobj.compiler_kwds.get("runtime_library_dirs", [])
-        ]
-        runtime_library_dirs = (
-            self.runtime_library_dirs
-            + prefs["codegen.cpp.runtime_library_dirs"]
-            + codeobj_runtime_dirs
-        )
-
-        codeobj_libraries = [
-            library
-            for codeobj in self.code_objects.values()
-            for library in codeobj.compiler_kwds.get("libraries", [])
-        ]
-        libraries = self.libraries + prefs["codegen.cpp.libraries"] + codeobj_libraries
-
-        compiler_obj = ccompiler.new_compiler(compiler=compiler)
-
-        # Distutils does not use the shell, so it does not need to quote filenames/paths
-        # Since we include the compiler flags in the makefile, we need to quote them
-        include_dirs = [f'"{include_dir}"' for include_dir in include_dirs]
-        library_dirs = [f'"{library_dir}"' for library_dir in library_dirs]
-        runtime_library_dirs = [
-            f'"{runtime_dir}"' for runtime_dir in runtime_library_dirs
-        ]
+        macro_flags = []
+        for m in define_macros:
+            if isinstance(m, (list, tuple)):
+                name, val = m if len(m) == 2 else (m[0], None)
+            else:
+                name, val = m, None
+            macro_flags.append(f"-D{name}={val}" if val is not None else f"-D{name}")
 
         compiler_flags = (
-            ccompiler.gen_preprocess_options(define_macros, include_dirs)
-            + extra_compile_args
+                extra_compile_args
+                + macro_flags
+                + [f"-I{d}" for d in include_dirs]
         )
-
         linker_flags = (
-            ccompiler.gen_lib_options(
-                compiler_obj,
-                library_dirs=library_dirs,
-                runtime_library_dirs=runtime_library_dirs,
-                libraries=libraries,
-            )
-            + extra_link_args
+                extra_link_args
+                + [f"-L{d}" for d in library_dirs]
+                + [f"-l{l}" for l in libraries]
         )
 
-        codeobj_source_files = [
-            source_file
-            for codeobj in self.code_objects.values()
-            for source_file in codeobj.compiler_kwds.get("sources", [])
+        additional_source_files += [
+            f for c in self.code_objects.values() for f in c.compiler_kwds.get("sources", [])
         ]
-        additional_source_files += codeobj_source_files
-
-        for d in ["code_objects", "results", "static_arrays"]:
+        for d in ("code_objects", "results", "static_arrays"):
             ensure_directory(os.path.join(directory, d))
 
         self.writer = CPPWriter(directory)
-
-        # Get the number of threads if specified in an openmp context
         nb_threads = prefs.devices.cpp_standalone.openmp_threads
-        # If the number is negative, we need to throw an error
         if nb_threads < 0:
-            raise ValueError("The number of OpenMP threads can not be negative !")
-
-        logger.diagnostic(
-            "Writing C++ standalone project to directory "
-            f"'{os.path.normpath(directory)}'."
-        )
-
+            raise ValueError("OpenMP threads cannot be negative.")
         self.check_openmp_compatible(nb_threads)
 
         self.write_static_arrays(directory)
 
-        # Check that all names are globally unique
-        names = [obj.name for net in self.networks for obj in net.sorted_objects]
-        non_unique_names = [name for name, count in Counter(names).items() if count > 1]
-        if len(non_unique_names):
-            formatted_names = ", ".join(f"'{name}'" for name in non_unique_names)
-            raise ValueError(
-                "All objects need to have unique names in "
-                "standalone mode, the following name(s) were used "
-                f"more than once: {formatted_names}"
-            )
+        names = [o.name for n in self.networks for o in n.sorted_objects]
+        dupes = [n for n, c in Counter(names).items() if c > 1]
+        if dupes:
+            raise ValueError("Duplicate object names: " + ", ".join(f"'{n}'" for n in dupes))
 
-        self.generate_objects_source(
-            self.writer,
-            self.arange_arrays,
-            self.synapses,
-            self.static_array_specs,
-            self.networks,
-            self.timed_arrays,
-        )
+        self.generate_objects_source(self.writer, self.arange_arrays, self.synapses,
+                                     self.static_array_specs, self.networks, self.timed_arrays)
         self.generate_main_source(self.writer)
         self.generate_codeobj_source(self.writer)
         self.generate_network_source(self.writer, compiler)
         self.generate_synapses_classes_source(self.writer)
         self.generate_run_source(self.writer)
         self.copy_source_files(self.writer, directory)
-
         self.writer.source_files.update(additional_source_files)
 
         self.generate_makefile(
@@ -583,41 +534,17 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             self.compile_source(directory, compiler, debug, clean)
             if run:
                 self.run(directory, results_directory, with_output, run_args)
-        time_measurements = {
-            "'make clean'": self.timers["compile"]["clean"],
-            "'make'": self.timers["compile"]["make"],
-            "running 'main'": self.timers["run_binary"],
-        }
-        logged_times = [
-            f"{task}: {measurement:.2f}s"
-            for task, measurement in time_measurements.items()
-            if measurement is not None
-        ]
-        logger.debug(f"Time measurements: {', '.join(logged_times)}")
 
-    def get_compiler_and_args_wasm(self):
-        compiler, compile_flags = get_compiler_and_args()
-        link_flags = prefs["codegen.cpp.extra_link_args"][:]
-
-        compile_flags = [
-            tok for tok in compile_flags
-            if not (
-                    tok.startswith("/") or
-                    tok.startswith("-march")
+        tm = self.timers
+        logger.debug("Time measurements: " + ", ".join(
+            f"{lbl}: {tm[g][k]:.2f}s" if isinstance(tm[g], dict) else f"{lbl}: {tm[g]:.2f}s"
+            for lbl, g, k in (
+                ("'make clean'", "compile", "clean"),
+                ("'make'", "compile", "make"),
+                ("running 'main'", "run_binary", None),
             )
-        ]
-
-        link_flags = [
-            tok for tok in link_flags
-            if not (
-                    tok.startswith("/") or
-                    tok.lower().endswith(".lib") or
-                    tok in ("--enable-new-dtags", "--enable-new-dtags,") or
-                    tok.startswith("-R")
-            )
-        ]
-
-        return compiler, compile_flags, link_flags
+            if (k and tm[g][k] is not None) or (not k and tm[g] is not None)
+        ))
 
 
 wasm_standalone_device = WASMStandaloneDevice()
