@@ -8,7 +8,6 @@ import shutil
 import tempfile
 import time
 from collections import Counter
-from distutils import ccompiler
 
 import numpy as np
 
@@ -21,7 +20,6 @@ from brian2.utils.filetools import in_directory
 from brian2.devices import all_devices
 from brian2.devices.cpp_standalone.device import CPPStandaloneDevice, CPPWriter
 from brian2.utils.filetools import ensure_directory
-from brian2.codegen.cpp_prefs import get_compiler_and_args
 
 __all__ = []
 
