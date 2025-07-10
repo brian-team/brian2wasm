@@ -107,25 +107,19 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         )
         writer.write("objects.*", arr_tmp)
 
-    def generate_makefile(
-            self,
-            writer,
-            compiler,
-            compiler_flags,
-            linker_flags,
-            nb_threads,
-            debug,
-    ):
+    def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug):
+        preloads = ' '.join(f'--preload-file static_arrays/{static_array}'
+                            for static_array in sorted(self.static_arrays.keys()))
+        rm_cmd = 'rm $(OBJS) $(PROGRAM) $(DEPS)'
+        if debug:
+            compiler_debug_flags = '-g -DDEBUG'
+            linker_debug_flags = '-g'
+        else:
+            compiler_debug_flags = ''
+            linker_debug_flags = ''
 
-        preload_flags = " ".join(f"--preload-file static_arrays/{name}"
-                                 for name in sorted(self.static_arrays))
-        rm_cmd = "rm $(OBJS) $(PROGRAM) $(DEPS)"
-        compiler_dbg = "-g -DDEBUG" if debug else ""
-        linker_dbg = "-g" if debug else ""
-
-        source_files = " ".join(sorted(writer.source_files))
-        header_files = " ".join(sorted(writer.header_files))
-        preamble_path = os.path.join(os.path.dirname(__file__), "templates", "pre.js")
+        source_files = ' '.join(sorted(writer.source_files))
+        preamble_file = os.path.join(os.path.dirname(__file__), 'templates', 'pre.js')
 
         emsdk_path = (
                 prefs.devices.wasm_standalone.emsdk_directory
@@ -134,35 +128,38 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
                 or ""
         )
         emsdk_version = prefs.devices.wasm_standalone.emsdk_version
-
-        if not emsdk_path and (
-                not os.environ.get("EMSDK") or os.environ["EMSDK"] not in os.environ["PATH"]
-        ):
-            raise ValueError(
-                "Please provide the path to the EMSDK directory in the preferences."
-            )
-
-        templater = self.code_object_class().templater
-        makefile_fn = templater.win_makefile if os.name == "nt" else templater.makefile
-        output_name = "win_makefile" if os.name == "nt" else "makefile"
-
-        makefile_content = makefile_fn(
-            None,
-            None,
-            source_files=source_files,
-            header_files=header_files,
-            compiler_flags=compiler_flags,
-            compiler_debug_flags=compiler_dbg,
-            linker_debug_flags=linker_dbg,
-            linker_flags=linker_flags,
-            preloads=preload_flags,
-            preamble_file=preamble_path,
-            rm_cmd=rm_cmd,
-            emsdk_path=emsdk_path,
-            emsdk_version=emsdk_version,
-        )
-
-        writer.write(output_name, makefile_content)
+        if not emsdk_path:
+            # Check whether EMSDK is already activated
+            if not (os.environ.get("EMSDK", "")) or os.environ["EMSDK"] not in os.environ["PATH"]:
+                raise ValueError("Please provide the path to the emsdk directory in the preferences")
+        if os.name == 'nt':
+            makefile_tmp = self.code_object_class().templater.win_makefile(None, None,
+                source_files=source_files,
+                header_files=' '.join(sorted(writer.header_files)),
+                compiler_flags=compiler_flags,
+                compiler_debug_flags=compiler_debug_flags,
+                linker_debug_flags=linker_debug_flags,
+                linker_flags=linker_flags,
+                preloads=preloads,
+                preamble_file=preamble_file,
+                rm_cmd=rm_cmd,
+                emsdk_path=emsdk_path,
+                emsdk_version=emsdk_version)
+        else:
+            makefile_tmp = self.code_object_class().templater.makefile(None, None,
+                source_files=source_files,
+                header_files=' '.join(sorted(writer.header_files)),
+                compiler_flags=compiler_flags,
+                compiler_debug_flags=compiler_debug_flags,
+                linker_debug_flags=linker_debug_flags,
+                linker_flags=linker_flags,
+                preloads=preloads,
+                preamble_file=preamble_file,
+                rm_cmd=rm_cmd,
+                emsdk_path=emsdk_path,
+                emsdk_version=emsdk_version)
+        outputfile_name = 'win_makefile' if os.name == 'nt' else 'makefile'
+        writer.write(outputfile_name, makefile_tmp)
 
     def copy_source_files(self, writer, directory):
         super(WASMStandaloneDevice, self).copy_source_files(writer, directory)
