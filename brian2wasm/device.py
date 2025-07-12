@@ -29,22 +29,34 @@ prefs.register_preferences(
     'devices.wasm_standalone',
     'Preferences for the WebAsm backend',
     emsdk_directory=BrianPreference(
-        docs='''Path to the emsdk directory, containing the emsdk binary.''',
-        default=''
+        default="",
+        docs="""
+            Absolute path to the *emsdk* installation. Leave empty to use the
+            EMSDK/CONDA_EMSDK_DIR environment variables or an already-activated
+            emsdk in your shell.
+            """,
     ),
     emsdk_version=BrianPreference(
-        docs='''Version of the emsdk to use, defaults to "latest"''',
-        default="latest"
+        default="latest",
+        docs="""
+            Version string passed to ``emsdk activate`` (e.g. ``"3.1.56"``).
+            Ignored when *emsdk_directory* is empty and the SDK is pre-activated.
+            """,
     ),
     emcc_compile_args=BrianPreference(
-        default=[
-            "-w"
-        ],
-        docs="Extra flags appended to every emcc compile command",
+        default=["-w"],
+        docs="""
+            Extra flags appended to every *emcc* **compile** command.
+            Example: ``["-O3", "-sASSERTIONS"]``.
+            """,
     ),
     emcc_link_args=BrianPreference(
         default=[],
-        docs="Extra flags passed at link time",
+        docs="""
+            Extra flags appended to the final *emcc* **link** command that produces
+            ``wasm_module.js`` / ``.wasm``.
+            Example: ``["-sEXPORT_ES6", "-sEXPORTED_RUNTIME_METHODS=['cwrap']"]``.
+            """,
     ),
 )
 
@@ -397,6 +409,43 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             self.timers['run_binary'] = time.time() - start_time
 
     def build(self, html_file=None, html_content=None, **kwds):
+        """
+                Build the project for the WASM backend.
+
+                Parameters
+                ----------
+                directory : str, optional
+                    Target folder for the generated project. If ``None`` a temporary
+                    directory is created.  Default: ``"output"``.
+                results_directory : str, optional
+                    Relative sub-folder used at runtime to store simulation results.
+                    Default: ``"results"``.
+                compile : bool, optional
+                    Compile the generated sources with *emcc*.  Default: ``True``.
+                run : bool, optional
+                    Execute the produced JavaScript/WASM bundle after a successful
+                    build (headless node-style run).  Default: ``True``.
+                debug : bool, optional
+                    Add debug symbols and ``-g -DDEBUG`` flags.  Default: ``False``.
+                clean : bool, optional
+                    Remove previously compiled objects before building.  Default:
+                    ``False``.
+                with_output : bool, optional
+                    Forward the program’s stdout/stderr when running.  Default:
+                    ``True``.
+                additional_source_files : list[str] | None
+                    Extra ``.cpp`` files to compile alongside the generated Brian code.
+                run_args : list[str] | None
+                    Additional command-line arguments passed to the executable HTML/
+                    JS harness when *run* is ``True``.
+                direct_call : bool, optional
+                    ``True`` when invoked by user code, ``False`` when invoked
+                    automatically because ``build_on_run=True``.
+                **kwds
+                    Reserved for future keyword arguments; passing unknown names
+                    raises ``TypeError``.
+                """
+
         self.build_options.update({'html_file': html_file,
                                    'html_content': html_content})
 
