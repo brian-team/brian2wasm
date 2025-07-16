@@ -1,0 +1,54 @@
+name: Test PR on Linux, macOS and Windows
+
+on: [pull_request]
+
+jobs:
+  test:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+      fail-fast: false
+
+    steps:
+      # Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Set up MSVC env (Windows)
+      - name: Set up MSVC env (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # Install Pixi
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@v0.8.0
+        with:
+          cache: false
+
+      # Verify Pixi installation
+      - name: Verify Pixi version
+        run: pixi --version
+
+      # Run pixi install
+      - name: Install dependencies
+        run: pixi install --locked
+
+      # Run setup
+      - name: Run setup
+        run: pixi run setup
+
+      # Check Dependencies
+      - name: Check dependencies
+        run: which emcc emrun brian2wasm emsdk
+        shell: pixi run bash -e {0}
+
+      # Run an example and check output
+      - name: Run example and verify output files
+        run: |
+          cd examples
+          python -m brian2wasm brunel_hakim1999.py --no-server
+          ls brunel_hakim1999/{brian.js,index.html,wasm_module.{js,wasm},worker.js}
+        shell: pixi run bash -e {0}

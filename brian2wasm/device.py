@@ -2,8 +2,9 @@
 Module implementing the WASM/JS "standalone" device.
 """
 import os
+import platform
+import re
 import shutil
-import subprocess
 import time
 
 import numpy as np
@@ -93,7 +94,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         )
         writer.write("objects.*", arr_tmp)
 
-    def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug):
+    def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug): 
         preloads = ' '.join(f'--preload-file static_arrays/{static_array}'
                             for static_array in sorted(self.static_arrays.keys()))
         rm_cmd = 'rm $(OBJS) $(PROGRAM) $(DEPS)'
@@ -105,15 +106,46 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             linker_debug_flags = ''
         compiler_flags = compiler_flags.replace("-march=native", "")  # don't pass -march to emcc
         linker_flags = linker_flags.replace("--enable-new-dtags,", "")  # don't pass --enable-new-dtags to wasm-ld
+        linker_flags = re.sub(r'-R\S+', '', linker_flags)  # remove unsupported -R<path> flags for wasm-ld
+        
+        # drop MSVC-specific options emcc doesn't understand
+        compiler_flags = ' '.join(tok for tok in compiler_flags.split()
+                          if not tok.startswith('/'))
+
+        linker_flags = ' '.join(tok for tok in linker_flags.split() 
+                        if not (tok.startswith('/')         
+                                or tok.lower().endswith('.lib')))
+        
         source_files = ' '.join(sorted(writer.source_files))
         preamble_file = os.path.join(os.path.dirname(__file__), 'templates', 'pre.js')
-        emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
+        
+        emsdk_path = (
+            prefs.devices.wasm_standalone.emsdk_directory
+            or os.environ.get("EMSDK")
+            or os.environ.get("CONDA_EMSDK_DIR")
+            or ""
+        )
+
         emsdk_version = prefs.devices.wasm_standalone.emsdk_version
         if not emsdk_path:
             # Check whether EMSDK is already activated
             if not(os.environ.get("EMSDK", "")) or os.environ["EMSDK"] not in os.environ["PATH"]:
                 raise ValueError("Please provide the path to the emsdk directory in the preferences")
-        makefile_tmp = self.code_object_class().templater.makefile(None, None,
+        if os.name == 'nt':
+            makefile_tmp = self.code_object_class().templater.win_makefile(None, None,
+                source_files=source_files,
+                header_files=' '.join(sorted(writer.header_files)),
+                compiler_flags=compiler_flags,
+                compiler_debug_flags=compiler_debug_flags,
+                linker_debug_flags=linker_debug_flags,
+                linker_flags=linker_flags,
+                preloads=preloads,
+                preamble_file=preamble_file,
+                rm_cmd=rm_cmd,
+                emsdk_path=emsdk_path,
+                emsdk_version=emsdk_version)
+        else:
+            makefile_tmp = self.code_object_class().templater.makefile(None, None,
             source_files=source_files,
             header_files=' '.join(sorted(writer.header_files)),
             compiler_flags=compiler_flags,
@@ -125,7 +157,8 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             rm_cmd=rm_cmd,
             emsdk_path=emsdk_path,
             emsdk_version=emsdk_version)
-        writer.write('makefile', makefile_tmp)
+        outputfile_name = 'win_makefile' if os.name == 'nt' else 'makefile'
+        writer.write(outputfile_name, makefile_tmp)
 
     def copy_source_files(self, writer, directory):
         super(WASMStandaloneDevice, self).copy_source_files(writer, directory)
@@ -341,6 +374,18 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
                 shutil.copy(html_file, os.path.join(self.project_dir, 'index.html'))
 
         with in_directory(directory):
+            if os.environ.get('BRIAN2WASM_NO_SERVER','0') == '1':
+                print("Skipping server startup (--no-server flag set)")
+                return
+            
+            if platform.system() == "Windows":
+                cmd_line = f'emrun "index.html"'
+                try:
+                    os.system(cmd_line)
+                except Exception as e:
+                    raise RuntimeError(f"Failed to run emrun command: {cmd_line}. "
+                                       "Please ensure that emrun is installed and available in your PATH.") from e
+
             if prefs.devices.wasm_standalone.emsdk_directory:
                 emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
                 run_cmd = ['source', f'{emsdk_path}/emsdk_env.sh', '&&', 'emrun', 'index.html']
