@@ -1,0 +1,45 @@
+{% set name = "brian2wasm" %}
+{% set version = "0.4.2" %}
+{% set sha256 = "c2def2426e60eb21f71aeea9fe3225512e0e0b9e63fb69b3761c9d9d0b5bba8d" %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  url: https://files.pythonhosted.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
+  sha256: {{ sha256 }}
+
+build:
+  noarch: python
+  script: {{ PYTHON }} -m pip install . --no-deps -vv
+
+requirements:
+  host:
+    - python
+    - pip
+    - setuptools
+  run:
+    - python
+    - brian2
+    - numpy
+    - jinja2
+    - sympy
+    - packaging
+    - scipy
+    - setuptools
+    - pyparsing
+    - emsdk
+
+about:
+  home: https://github.com/brian-team/brian2wasm
+  summary: WebAssembly backend for Brian2 simulator
+  description: |
+    brian2wasm extends the Brian2 simulator to generate WebAssembly-compatible code
+    using Emscripten. This enables running spiking neural network simulations directly
+    in the browser.
+
+extra:
+  recipe-maintainers:
+    - mstimberg
+    - PalashChitnavis
