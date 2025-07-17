@@ -1,14 +1,12 @@
 {% set name = "brian2wasm" %}
 {% set version = "0.4.2" %}
-{% set sha256 = "c2def2426e60eb21f71aeea9fe3225512e0e0b9e63fb69b3761c9d9d0b5bba8d" %}
 
 package:
   name: {{ name }}
   version: {{ version }}
 
 source:
-  url: https://files.pythonhosted.org/packages/source/{{ name[0] }}/{{ name }}/{{ name }}-{{ version }}.tar.gz
-  sha256: {{ sha256 }}
+  path: ..
 
 build:
   noarch: python
