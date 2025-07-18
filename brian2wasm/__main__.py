@@ -3,6 +3,45 @@ import sys
 import os
 
 def main():
+    """
+        Command-line interface for **Brian2Wasm**.
+
+        Usage
+        -----
+        ``python -m brian2wasm <script.py> [--no-server]``
+
+        Parameters
+        ----------
+        script : str
+            Path to the user’s Python model. The file **must** end with
+            ``.py`` and must not call ``set_device`` itself – the CLI inserts
+            the appropriate ``set_device('wasm_standalone', …)`` line
+            automatically.
+        --no-server : flag, optional
+            Generate the WASM/HTML output without starting the local preview
+            web-server (sets the ``BRIAN2WASM_NO_SERVER`` environment
+            variable for the subprocess).
+
+        Behaviour
+        ---------
+        1. Validates that *script* exists and is a ``.py`` file.
+        2. Looks for an ``<scriptname>.html`` file in the same directory.
+           * If found, passes the HTML file to ``set_device`` so the custom
+             template is used.
+           * Otherwise falls back to the default template.
+        3. Prepends the required ``set_device('wasm_standalone', …)`` call to
+           the script source in-memory.
+        4. Executes the modified script with its own directory as working
+           directory, so any relative paths inside the model behave as
+           expected.
+
+        Exit status
+        -----------
+        * ``0`` – build finished successfully (and server started unless
+          *--no-server* was given).
+        * ``1`` – any error (missing file, not a ``.py`` file, exception
+          during model execution, etc.).
+        """
 
     parser = argparse.ArgumentParser(
         description="Brian2WASM CLI"
