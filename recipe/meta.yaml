@@ -18,14 +18,10 @@ requirements:
     - setuptools
   run:
     - python
-    - brian2
+    - brian2 =2.9.0
     - numpy
-    - jinja2
     - sympy
-    - packaging
     - scipy
-    - setuptools
-    - pyparsing
     - emsdk
 
 about:
