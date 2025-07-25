@@ -9,7 +9,9 @@ source:
   path: ..
 
 build:
-  noarch: python
+  number: 0
+  script: {{ PYTHON }} -m pip install . --no-deps -vv
+  skip: true  # [python_impl == 'pypy' or py < 310]
 
 requirements:
   host:

@@ -88,7 +88,7 @@ def check_emsdk():
         print("     conda install emsdk -c conda-forge")
         sys.exit(1)
 
-    print(f"✅ CONDA_EMSDK_DIR found: {conda_emsdk_dir}")
+    print(f"✅ EMSDK is installed and CONDA_EMSDK_DIR is found")
 
     upstream_path = os.path.join(conda_emsdk_dir, "upstream")
     if os.path.isdir(upstream_path):

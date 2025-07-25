@@ -1,2 +1,0 @@
-unset CONDA_EMSDK_DIR
-unset EMSDK_ENV
