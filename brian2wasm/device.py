@@ -118,13 +118,13 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         
         source_files = ' '.join(sorted(writer.source_files))
         preamble_file = os.path.join(os.path.dirname(__file__), 'templates', 'pre.js')
-        
-        emsdk_path = (
-            prefs.devices.wasm_standalone.emsdk_directory
-            or os.environ.get("EMSDK")
-            or os.environ.get("CONDA_EMSDK_DIR")
-            or ""
+
+        prefs.devices.wasm_standalone.emsdk_directory = (
+                prefs.devices.wasm_standalone.emsdk_directory
+                or os.environ.get("EMSDK")
+                or os.environ.get("CONDA_EMSDK_DIR")
         )
+        emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
 
         emsdk_version = prefs.devices.wasm_standalone.emsdk_version
         if not emsdk_path:
@@ -377,22 +377,19 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             if os.environ.get('BRIAN2WASM_NO_SERVER','0') == '1':
                 print("Skipping server startup (--no-server flag set)")
                 return
-            
-            if platform.system() == "Windows":
-                cmd_line = f'emrun "index.html"'
-                try:
-                    os.system(cmd_line)
-                except Exception as e:
-                    raise RuntimeError(f"Failed to run emrun command: {cmd_line}. "
-                                       "Please ensure that emrun is installed and available in your PATH.") from e
 
-            if prefs.devices.wasm_standalone.emsdk_directory:
-                emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
-                run_cmd = ['source', f'{emsdk_path}/emsdk_env.sh', '&&', 'emrun', 'index.html']
+            emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
+            os.environ['EMSDK_QUIET'] = '1'
+
+            if platform.system() == "Windows":
+                cmd_line = f'cmd.exe /C "call {emsdk_path}\\emsdk_env.bat & emrun index.html"'
+
             else:
-                run_cmd = ['emrun', 'index.html']
+                run_cmd = ['source', f'{emsdk_path}/emsdk_env.sh', '&&', 'emrun', 'index.html']
+                cmd_line = f"/bin/bash -c '{' '.join(run_cmd + run_args)}'"
+
             start_time = time.time()
-            os.system(f"/bin/bash -c '{' '.join(run_cmd + run_args)}'")
+            os.system(cmd_line)
             self.timers['run_binary'] = time.time() - start_time
 
     def build(self, html_file=None, html_content=None, **kwds):

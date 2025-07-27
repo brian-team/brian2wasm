@@ -99,24 +99,6 @@ def check_emsdk():
         print("       emsdk install latest && emsdk activate latest")
         sys.exit(1)
 
-    # Check if env is sourced (emcc and emrun in PATH)
-    emcc_path = shutil.which("emcc")
-    emrun_path = shutil.which("emrun")
-
-    if emcc_path and emrun_path:
-        print(f"✅ emcc found at: {emcc_path}")
-        print(f"✅ emrun found at: {emrun_path}")
-        print("✅ EMSDK environment is properly sourced.")
-    else:
-        print("❌ EMSDK environment is not sourced correctly.")
-        if platform.system() == "Windows":
-            print(f"   ➤ On Windows, run:")
-            print(f"     {conda_emsdk_dir}\\emsdk_env.bat")
-        else:
-            print(f"   ➤ On Unix/Linux/macOS, run:")
-            print(f"     source {conda_emsdk_dir}/emsdk_env.sh")
-        sys.exit(1)
-
 
 if __name__ == "__main__":
     main()

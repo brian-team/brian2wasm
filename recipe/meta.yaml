@@ -11,7 +11,6 @@ source:
 build:
   number: 0
   script: {{ PYTHON }} -m pip install . --no-deps -vv
-  skip: true  # [python_impl == 'pypy' or py < 310]
 
 requirements:
   host:
@@ -22,8 +21,6 @@ requirements:
     - python
     - brian2 =2.9.0
     - numpy
-    - sympy
-    - scipy
     - emsdk
 
 about:
