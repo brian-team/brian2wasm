@@ -3,6 +3,7 @@ import shutil
 import sys
 import os
 import platform
+import subprocess
 
 def main():
     parser = argparse.ArgumentParser(description="Brian2WASM CLI")
@@ -90,13 +91,19 @@ def check_emsdk():
 
     print(f"✅ EMSDK is installed and CONDA_EMSDK_DIR is found")
 
-    upstream_path = os.path.join(conda_emsdk_dir, "upstream")
-    if os.path.isdir(upstream_path):
-        print("✅ EMSDK is installed and activated (upstream/ folder found).")
-    else:
-        print("❌ EMSDK is not activated (missing upstream/ folder).")
-        print(f"   ➤ To fix this run the following inside the terminal:")
-        print("       emsdk install latest && emsdk activate latest")
+    try:
+        print("🔧 Attempting to activate EMSDK with: emsdk activate latest")
+        result = subprocess.run(["emsdk", "activate", "latest"], check=False, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            print("❌ Failed to activate EMSDK:")
+            print("   ➤ Please run the following manually in your terminal:")
+            print("       emsdk install latest && emsdk activate latest")
+            sys.exit(1)
+        else:
+            print("✅ EMSDK activation succeeded.")
+    except Exception as e:
+        print(f"❌ Error while running EMSDK activation: {e}")
         sys.exit(1)
 
 
