@@ -5,8 +5,5 @@ User's guide
    :maxdepth: 2
 
    installation
-   plotting
-   nmlexporter
-   nmlimport
-   baseexporter
-   mdexporter
+   usage
+   issues
