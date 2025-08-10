@@ -9,20 +9,22 @@ def main():
     parser = argparse.ArgumentParser(description="Brian2WASM CLI")
     parser.add_argument("script", help="Path to the Python script to run")
     parser.add_argument("--no-server", action="store_true", help="Generate files without starting the web server")
+    parser.add_argument("--skip-install", action="store_true", help="Run Brian2WASM without installing/activating EMSDK")
     args = parser.parse_args()
 
     script_path = args.script
 
     # Check if the script exists and is a Python file
     if not os.path.isfile(script_path):
-        print(f"❌ Error: File '{script_path}' does not exist.", file=sys.stderr)
+        full_path = os.path.abspath(script_path)
         sys.exit(1)
     if not script_path.endswith(".py"):
         print(f"❌ Error: File '{script_path}' is not a Python script (.py).", file=sys.stderr)
         sys.exit(1)
 
-    # Check emsdk setup
-    check_emsdk()
+    if not args.skip_install:
+        # Check emsdk setup
+        check_emsdk()
 
     # Read the original script
     with open(script_path, 'r') as f:
@@ -93,12 +95,22 @@ def check_emsdk():
 
     try:
         print("🔧 Attempting to activate EMSDK with: emsdk activate latest")
-        result = subprocess.run(["emsdk", "activate", "latest"], check=False, capture_output=True, text=True)
-
+        result = subprocess.run(["./emsdk", "activate", "latest"], cwd=conda_emsdk_dir, check=False, capture_output=True, text=True)
         if result.returncode != 0:
             print("❌ Failed to activate EMSDK:")
-            print("   ➤ Please run the following manually in your terminal:")
-            print("       emsdk install latest && emsdk activate latest")
+            choice = input("Do you want to install and activate EMSDK now? (y/n) ")
+            if choice == 'y':
+                try:
+                    subprocess.run(["./emsdk", "install", "latest"], cwd=conda_emsdk_dir, check=True)
+                    print("✅ EMSDK install & activation succeeded. You can run the script now.")
+                except subprocess.CalledProcessError as e:
+                    print("❌ Failed to activate EMSDK:")
+                    print("   ➤ Please run the following manually in your terminal and try again:")
+                    print("       cd $CONDA_EMSDK_DIR && ./emsdk install latest && ./emsdk activate latest")
+            else:
+                print("   ➤ Please run the following manually in your terminal and try again:")
+                print("       cd $CONDA_EMSDK_DIR && ./emsdk install latest && ./emsdk activate latest")
+
             sys.exit(1)
         else:
             print("✅ EMSDK activation succeeded.")
