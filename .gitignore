@@ -7,3 +7,5 @@ examples/output/
 pixi.lock
 brian2wasm/_version.py
 /dist
+
+/docs/_build
