@@ -17,6 +17,7 @@ def main():
     # Check if the script exists and is a Python file
     if not os.path.isfile(script_path):
         full_path = os.path.abspath(script_path)
+        print(f"❌ Error: File '{full_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
     if not script_path.endswith(".py"):
         print(f"❌ Error: File '{script_path}' is not a Python script (.py).", file=sys.stderr)
