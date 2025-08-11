@@ -37,3 +37,19 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
+
+# Create api docs
+def run_apidoc(_):
+    try:
+        import sphinx.ext.apidoc as apidoc
+    except ImportError:
+        import sphinx.apidoc as apidoc
+    brian2wasm_dir = os.path.abspath(os.path.join(os.path.dirname(__file__),
+                                                   '..', 'brian2wasm'))
+    docs_sphinx_dir = os.path.abspath(os.path.join(os.path.dirname(__file__)))
+    apidoc.main(argv=['-f', '-e', '-M',
+                      '-o', os.path.join(docs_sphinx_dir, 'reference'),
+                      brian2wasm_dir, os.path.join(brian2wasm_dir, 'tests')])
+
+def setup(app):
+    app.connect('builder-inited', run_apidoc)
