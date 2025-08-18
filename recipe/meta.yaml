@@ -19,7 +19,7 @@ requirements:
     - setuptools
   run:
     - python
-    - brian2 =2.9.0
+    - brian2 >=2.9.0
     - numpy
     - emsdk
 

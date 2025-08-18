@@ -90,6 +90,8 @@ def check_emsdk():
         print("     pixi add emsdk && pixi install")
         print("   ➤ If you are using **Conda**, run:")
         print("     conda install emsdk -c conda-forge")
+        print("   ➤ Else refer to Emscripten documentation:")
+        print("     https://emscripten.org/index.html#")
         sys.exit(1)
 
     print(f"✅ EMSDK is installed and CONDA_EMSDK_DIR is found")
