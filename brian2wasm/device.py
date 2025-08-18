@@ -5,7 +5,9 @@ import os
 import platform
 import re
 import shutil
+import tempfile
 import time
+from collections import Counter
 
 import numpy as np
 
@@ -16,7 +18,8 @@ from brian2.synapses import Synapses
 from brian2.utils.logger import get_logger
 from brian2.utils.filetools import in_directory
 from brian2.devices import all_devices
-from brian2.devices.cpp_standalone.device import CPPStandaloneDevice
+from brian2.devices.cpp_standalone.device import CPPStandaloneDevice, CPPWriter
+from brian2.utils.filetools import ensure_directory
 
 __all__ = []
 
@@ -26,12 +29,34 @@ prefs.register_preferences(
     'devices.wasm_standalone',
     'Preferences for the WebAsm backend',
     emsdk_directory=BrianPreference(
-        docs='''Path to the emsdk directory, containing the emsdk binary.''',
-        default=''
+        default="",
+        docs="""
+            Absolute path to the *emsdk* installation. Leave empty to use the
+            EMSDK/CONDA_EMSDK_DIR environment variables or an already-activated
+            emsdk in your shell.
+            """,
     ),
     emsdk_version=BrianPreference(
-        docs='''Version of the emsdk to use, defaults to "latest"''',
-        default="latest"
+        default="latest",
+        docs="""
+            Version string passed to ``emsdk activate`` (e.g. ``"3.1.56"``).
+            Ignored when *emsdk_directory* is empty and the SDK is pre-activated.
+            """,
+    ),
+    emcc_compile_args=BrianPreference(
+        default=["-w"],
+        docs="""
+            Extra flags appended to every *emcc* **compile** command.
+            Example: ``["-O3", "-sASSERTIONS"]``.
+            """,
+    ),
+    emcc_link_args=BrianPreference(
+        default=[],
+        docs="""
+            Extra flags appended to the final *emcc* **link** command that produces
+            ``wasm_module.js`` / ``.wasm``.
+            Example: ``["-sEXPORT_ES6", "-sEXPORTED_RUNTIME_METHODS=['cwrap']"]``.
+            """,
     ),
 )
 
@@ -94,7 +119,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         )
         writer.write("objects.*", arr_tmp)
 
-    def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug): 
+    def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug):
         preloads = ' '.join(f'--preload-file static_arrays/{static_array}'
                             for static_array in sorted(self.static_arrays.keys()))
         rm_cmd = 'rm $(OBJS) $(PROGRAM) $(DEPS)'
@@ -104,18 +129,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         else:
             compiler_debug_flags = ''
             linker_debug_flags = ''
-        compiler_flags = compiler_flags.replace("-march=native", "")  # don't pass -march to emcc
-        linker_flags = linker_flags.replace("--enable-new-dtags,", "")  # don't pass --enable-new-dtags to wasm-ld
-        linker_flags = re.sub(r'-R\S+', '', linker_flags)  # remove unsupported -R<path> flags for wasm-ld
-        
-        # drop MSVC-specific options emcc doesn't understand
-        compiler_flags = ' '.join(tok for tok in compiler_flags.split()
-                          if not tok.startswith('/'))
 
-        linker_flags = ' '.join(tok for tok in linker_flags.split() 
-                        if not (tok.startswith('/')         
-                                or tok.lower().endswith('.lib')))
-        
         source_files = ' '.join(sorted(writer.source_files))
         preamble_file = os.path.join(os.path.dirname(__file__), 'templates', 'pre.js')
 
@@ -129,7 +143,7 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         emsdk_version = prefs.devices.wasm_standalone.emsdk_version
         if not emsdk_path:
             # Check whether EMSDK is already activated
-            if not(os.environ.get("EMSDK", "")) or os.environ["EMSDK"] not in os.environ["PATH"]:
+            if not (os.environ.get("EMSDK", "")) or os.environ["EMSDK"] not in os.environ["PATH"]:
                 raise ValueError("Please provide the path to the emsdk directory in the preferences")
         if os.name == 'nt':
             makefile_tmp = self.code_object_class().templater.win_makefile(None, None,
@@ -146,17 +160,17 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
                 emsdk_version=emsdk_version)
         else:
             makefile_tmp = self.code_object_class().templater.makefile(None, None,
-            source_files=source_files,
-            header_files=' '.join(sorted(writer.header_files)),
-            compiler_flags=compiler_flags,
-            compiler_debug_flags=compiler_debug_flags,
-            linker_debug_flags=linker_debug_flags,
-            linker_flags=linker_flags,
-            preloads=preloads,
-            preamble_file=preamble_file,
-            rm_cmd=rm_cmd,
-            emsdk_path=emsdk_path,
-            emsdk_version=emsdk_version)
+                source_files=source_files,
+                header_files=' '.join(sorted(writer.header_files)),
+                compiler_flags=compiler_flags,
+                compiler_debug_flags=compiler_debug_flags,
+                linker_debug_flags=linker_debug_flags,
+                linker_flags=linker_flags,
+                preloads=preloads,
+                preamble_file=preamble_file,
+                rm_cmd=rm_cmd,
+                emsdk_path=emsdk_path,
+                emsdk_version=emsdk_version)
         outputfile_name = 'win_makefile' if os.name == 'nt' else 'makefile'
         writer.write(outputfile_name, makefile_tmp)
 
@@ -393,9 +407,186 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             self.timers['run_binary'] = time.time() - start_time
 
     def build(self, html_file=None, html_content=None, **kwds):
+        """
+                Build the project for the WASM backend.
+
+                Parameters
+                ----------
+                directory : str, optional
+                    Target folder for the generated project. If ``None`` a temporary
+                    directory is created.  Default: ``"output"``.
+                results_directory : str, optional
+                    Relative sub-folder used at runtime to store simulation results.
+                    Default: ``"results"``.
+                compile : bool, optional
+                    Compile the generated sources with *emcc*.  Default: ``True``.
+                run : bool, optional
+                    Execute the produced JavaScript/WASM bundle after a successful
+                    build (headless node-style run).  Default: ``True``.
+                debug : bool, optional
+                    Add debug symbols and ``-g -DDEBUG`` flags.  Default: ``False``.
+                clean : bool, optional
+                    Remove previously compiled objects before building.  Default:
+                    ``False``.
+                with_output : bool, optional
+                    Forward the program’s stdout/stderr when running.  Default:
+                    ``True``.
+                additional_source_files : list[str] | None
+                    Extra ``.cpp`` files to compile alongside the generated Brian code.
+                run_args : list[str] | None
+                    Additional command-line arguments passed to the executable HTML/
+                    JS harness when *run* is ``True``.
+                direct_call : bool, optional
+                    ``True`` when invoked by user code, ``False`` when invoked
+                    automatically because ``build_on_run=True``.
+                **kwds
+                    Reserved for future keyword arguments; passing unknown names
+                    raises ``TypeError``.
+                """
+
         self.build_options.update({'html_file': html_file,
                                    'html_content': html_content})
-        super(WASMStandaloneDevice, self).build(**kwds)
+
+        direct_call = kwds.get('direct_call', True)
+        additional_source_files = kwds.get('additional_source_files', [])
+        run_args = kwds.get('run_args', [])
+        directory = kwds.get('directory') or tempfile.mkdtemp(prefix="brian_standalone_")
+        run = kwds.get('run', True)
+        debug = kwds.get('debug', False)
+        clean = kwds.get('clean', False)
+        with_output = kwds.get('with_output', True)
+        results_directory = kwds.get('results_directory', 'results')
+        compile = kwds.get('compile', True)
+
+        if self.build_on_run and direct_call:
+            raise RuntimeError(
+                "You used set_device with build_on_run=True "
+                "(the default option), which will automatically "
+                "build the simulation at the first encountered "
+                "run call - do not call device.build manually "
+                "in this case. If you want to call it manually, "
+                "e.g. because you have multiple run calls, use "
+                "set_device with build_on_run=False."
+            )
+        if self.has_been_run:
+            raise RuntimeError(
+                "The network has already been built and run "
+                "before. To build several simulations in "
+                'the same script, call "device.reinit()" '
+                'and "device.activate()". Note that you '
+                "will have to set build options (e.g. the "
+                "directory) and defaultclock.dt again."
+            )
+
+        self.project_dir = directory
+        ensure_directory(directory)
+        if os.path.isabs(results_directory):
+            raise TypeError(
+                "The 'results_directory' argument needs to be a relative path but was "
+                f"'{results_directory}'."
+            )
+        # Translate path to absolute path which ends with /
+        self.results_dir = os.path.join(
+            os.path.abspath(os.path.join(directory, results_directory)), ""
+        )
+
+        compiler = "emcc"
+        extra_compile_args = self.extra_compile_args + prefs["devices.wasm_standalone.emcc_compile_args"]
+        extra_link_args = self.extra_link_args + prefs["devices.wasm_standalone.emcc_link_args"]
+
+        define_macros = (
+            self.define_macros
+            + prefs["codegen.cpp.define_macros"]
+            + [m for c in self.code_objects.values() for m in c.compiler_kwds.get("define_macros", [])]
+        )
+        include_dirs = (
+            self.include_dirs
+            + prefs["codegen.cpp.include_dirs"]
+            + [d for c in self.code_objects.values() for d in c.compiler_kwds.get("include_dirs", [])]
+        )
+        library_dirs = (
+            self.library_dirs
+            + prefs["codegen.cpp.library_dirs"]
+            + [d for c in self.code_objects.values() for d in c.compiler_kwds.get("library_dirs", [])]
+        )
+        libraries = (
+            self.libraries
+            + prefs["codegen.cpp.libraries"]
+            + [l for c in self.code_objects.values() for l in c.compiler_kwds.get("libraries", [])]
+        )
+
+        macro_flags = []
+        for m in define_macros:
+            if isinstance(m, (list, tuple)):
+                name, val = m if len(m) == 2 else (m[0], None)
+            else:
+                name, val = m, None
+            macro_flags.append(f"-D{name}={val}" if val is not None else f"-D{name}")
+
+        compiler_flags = (
+                extra_compile_args
+                + macro_flags
+                + [f"-I{d}" for d in include_dirs]
+        )
+        linker_flags = (
+                extra_link_args
+                + [f"-L{d}" for d in library_dirs]
+                + [f"-l{l}" for l in libraries]
+        )
+
+        additional_source_files += [
+            f for c in self.code_objects.values() for f in c.compiler_kwds.get("sources", [])
+        ]
+        for d in ("code_objects", "results", "static_arrays"):
+            ensure_directory(os.path.join(directory, d))
+
+        self.writer = CPPWriter(directory)
+        nb_threads = prefs.devices.cpp_standalone.openmp_threads
+        if nb_threads < 0:
+            raise ValueError("OpenMP threads cannot be negative.")
+        self.check_openmp_compatible(nb_threads)
+
+        self.write_static_arrays(directory)
+
+        names = [o.name for n in self.networks for o in n.sorted_objects]
+        dupes = [n for n, c in Counter(names).items() if c > 1]
+        if dupes:
+            raise ValueError("Duplicate object names: " + ", ".join(f"'{n}'" for n in dupes))
+
+        self.generate_objects_source(self.writer, self.arange_arrays, self.synapses,
+                                     self.static_array_specs, self.networks, self.timed_arrays)
+        self.generate_main_source(self.writer)
+        self.generate_codeobj_source(self.writer)
+        self.generate_network_source(self.writer, compiler)
+        self.generate_synapses_classes_source(self.writer)
+        self.generate_run_source(self.writer)
+        self.copy_source_files(self.writer, directory)
+        self.writer.source_files.update(additional_source_files)
+
+        self.generate_makefile(
+            self.writer,
+            compiler,
+            compiler_flags=" ".join(compiler_flags),
+            linker_flags=" ".join(linker_flags),
+            nb_threads=nb_threads,
+            debug=debug,
+        )
+
+        if compile:
+            self.compile_source(directory, compiler, debug, clean)
+            if run:
+                self.run(directory, results_directory, with_output, run_args)
+
+        tm = self.timers
+        logger.debug("Time measurements: " + ", ".join(
+            f"{lbl}: {tm[g][k]:.2f}s" if isinstance(tm[g], dict) else f"{lbl}: {tm[g]:.2f}s"
+            for lbl, g, k in (
+                ("'make clean'", "compile", "clean"),
+                ("'make'", "compile", "make"),
+                ("running 'main'", "run_binary", None),
+            )
+            if (k and tm[g][k] is not None) or (not k and tm[g] is not None)
+        ))
 
 
 wasm_standalone_device = WASMStandaloneDevice()
