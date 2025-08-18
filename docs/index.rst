@@ -3,7 +3,7 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-brian2wasm documentation
+Welcome to brian2wasm's documentation
 ========================
 
 The ``brian2wasm`` package is a Brian 2 simulator “device” that compiles Brian models to WebAssembly and JavaScript using the Emscripten tool-chain.
@@ -12,12 +12,12 @@ It produces a self-contained web folder (HTML, JavaScript, and .wasm binary) tha
 
 .. image:: ./images/result_ornstein_uhlenbeck.png
 
-Please contact us at
-``brian-development@googlegroups.com`` (https://groups.google.com/forum/#!forum/brian-development)
+Please contact us via the
+``Brian Discourse group`` (https://brian.discourse.group/)
 if you are interested in contributing.
 
-Please report bugs at the `github issue tracker <https://github.com/brian-team/brian2wasm/issues>`_ or to
-``briansupport@googlegroups.com`` (https://groups.google.com/forum/#!forum/briansupport).
+Please report bugs at the `github issue tracker <https://github.com/brian-team/brian2wasm/issues>`_ or in the
+``Brian Discourse group`` (https://brian.discourse.group/).
 
 
 Contents
