@@ -11,7 +11,7 @@ def main():
 
         Usage
         -----
-        ``python -m brian2wasm <script.py> [--no-server]``
+        ``python -m brian2wasm <script.py> [--no-server] [--skip-install]``
 
         Parameters
         ----------
@@ -24,6 +24,10 @@ def main():
             Generate the WASM/HTML output without starting the local preview
             web-server (sets the ``BRIAN2WASM_NO_SERVER`` environment
             variable for the subprocess).
+        --skip-install : flag, optional
+            Run Brian2WASM without checking or installing EMSDK. Use this if
+            you are sure EMSDK is already installed and configured in your
+            environment.
 
         Behaviour
         ---------
@@ -32,9 +36,11 @@ def main():
            * If found, passes the HTML file to ``set_device`` so the custom
              template is used.
            * Otherwise falls back to the default template.
-        3. Prepends the required ``set_device('wasm_standalone', …)`` call to
+        3. Unless *--skip-install* is given, verifies EMSDK installation
+           (Pixi/Conda/CONDA_EMSDK_DIR) and attempts to activate it.
+        4. Prepends the required ``set_device('wasm_standalone', …)`` call to
            the script source in-memory.
-        4. Executes the modified script with its own directory as working
+        5. Executes the modified script with its own directory as working
            directory, so any relative paths inside the model behave as
            expected.
 
@@ -42,8 +48,8 @@ def main():
         -----------
         * ``0`` – build finished successfully (and server started unless
           *--no-server* was given).
-        * ``1`` – any error (missing file, not a ``.py`` file, exception
-          during model execution, etc.).
+        * ``1`` – any error (missing file, not a ``.py`` file, EMSDK not found
+          or not activated, exception during model execution, etc.).
         """
 
     parser = argparse.ArgumentParser(
@@ -58,7 +64,10 @@ def main():
         action="store_true",
         help="Generate files without starting the web server"
     )
-    parser.add_argument("--skip-install", action="store_true", help="Run Brian2WASM without installing/activating EMSDK")
+    parser.add_argument("--skip-install",
+                        action="store_true",
+                        help="Run Brian2WASM without installing/activating EMSDK"
+    )
     
     args = parser.parse_args()
 
