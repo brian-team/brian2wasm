@@ -30,6 +30,7 @@ Contents
    release_notes
    user/index
    developer/index
+   examples/index
 
 API reference
 -------------

@@ -1,0 +1,241 @@
+Ornstein-Uhlenbeck process
+========================
+
+Ornstein-Uhlenbeck process
+
+Figure 2: Two realizations of the Ornstein-Uhlenbeck process for parameters τ=1.0 and σ=0.1 (black curve), and for τ=0.1 and σ=0.31622 (red curve). In both cases the noise intensity is σ^2*τ=0.01 . The red curve represents a noise that more closely mimics Gaussian white noise. Both realizations begin here at x(0)=1.0 , after which the mean decays exponentially to zero with time constant τ.
+
+Andre Longtin (2010) Stochastic dynamical systems. Scholarpedia, 5(4):1619.
+
+Sebastian Schmitt, 2022
+
+ .. code-block:: python
+
+        // ornstein_uhlenbeck.py
+        from brian2 import *
+
+        N = NeuronGroup(
+            1,
+            """
+            tau : second
+            sigma : 1
+            dy/dt = -y/tau + sqrt(2*sigma**2/tau)*xi : 1
+            """,
+            method="euler"
+        )
+
+        N.tau = 0.5 * second
+        N.sigma = 0.1
+        N.y = 1
+
+        M = StateMonitor(N, "y", record=True)
+
+        run(10 * second)
+
+ .. code-block:: html
+
+        <!-- ornstein_uhlenbeck.html -->
+        <!doctype html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Brian2 WASM Simulation</title>
+
+            <!-- Plotly and MathJax -->
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.14.0/plotly.min.js"></script>
+            <script>
+                MathJax = {
+                  tex: {
+                    inlineMath: [['$', '$'], ['\\(', '\\)']]
+                  },
+                  svg: {
+                    fontCache: 'global'
+                  }
+                };
+            </script>
+            <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+            <script src="brian.js"></script>
+
+            <!-- Internal CSS -->
+            <style>
+                body {
+                    font-family: Arial, sans-serif;
+                    background-color: #f4f4f4;
+                    text-align: center;
+                    padding: 20px;
+                }
+
+                h1 {
+                    color: #333;
+                }
+
+                h2 {
+                    font-size: 20px;
+                    color: #444;
+                }
+
+                p {
+                    font-size: 18px;
+                    margin-bottom: 20px;
+                }
+
+                #brian_canvas {
+                    background: white;
+                    border: 2px solid #ccc;
+                    margin: 20px auto;
+                }
+
+                progress {
+                    margin-top: 10px;
+                    height: 20px;
+                    border-radius: 5px;
+                }
+
+                input[type="range"] {
+                    width: 200px;
+                    margin: 10px;
+                }
+
+                button {
+                    background-color: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 10px 15px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    border-radius: 5px;
+                    margin-top: 10px;
+                }
+
+                button:disabled {
+                    background-color: #aaa;
+                    cursor: not-allowed;
+                }
+
+                #brian_progress_text {
+                    font-size: 16px;
+                    font-weight: bold;
+                    margin-top: 5px;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Brian2 WASM Simulation</h1>
+
+            <h2>Ornstein-Uhlenbeck Process Equation:</h2>
+            <p>
+                \[
+                \frac{dy}{dt} = -\frac{y}{\tau} + \sigma \xi(t)
+                \]
+            </p>
+
+            <div id="brian_canvas" style="width: 600px; height: 400px;"></div>
+            <progress id="brian_progress_bar" max="1.0" value="0.0" style="width: 90%"></progress>
+            <div id="brian_progress_text"></div>
+
+            <label for="tau">Tau (τ): </label>
+            <input type="range" id="tau" min="0.1" max="2.0" step="0.1" value="0.5"
+                   oninput="document.getElementById('tau_value').textContent = this.value;">
+            <span id="tau_value">0.5</span> s
+            <br>
+
+            <label for="sigma">Sigma (σ): </label>
+            <input type="range" id="sigma" min="0.01" max="1.5" step="0.05" value="0.9"
+                   oninput="document.getElementById('sigma_value').textContent = this.value;">
+            <span id="sigma_value">0.9</span>
+            <br>
+
+            <button type="button" id="brian_run_button" onclick="runSimulation()">Run Simulation</button>
+
+            <script>
+                var brian_sim = new BrianSimulation();
+
+                function runSimulation() {
+                    let tauValue = parseFloat(document.getElementById("tau").value);
+                    let sigmaValue = parseFloat(document.getElementById("sigma").value);
+
+                    // Disable the run button and show "Running Simulation..."
+                    document.getElementById("brian_run_button").disabled = true;
+                    document.getElementById("brian_progress_bar").value = 0;
+                    document.getElementById("brian_progress_text").textContent = "Running Simulation...";
+
+                    // Reset graph before new simulation
+                    Plotly.react('brian_canvas', [{ x: [], y: [], mode: 'lines' }], {
+                        xaxis: { title: { text: 'Time (s)' }, range: [0, 10] , autorange: true},
+                        yaxis: { title: { text: 'Ornstein-Uhlenbeck process' }, range: [-1, 1] , autorange: true},
+                        datarevision: 0
+                    });
+
+                    brian_sim.run({
+                        'neurongroup.tau': tauValue,
+                        'neurongroup.sigma': sigmaValue
+                    });
+                }
+
+                window.onload = () => {
+                    brian_sim.init();
+                    brian_sim.last_plot_time = 0.0;
+
+                    // Create empty plot
+                    var layout = {
+                        xaxis: { title: { text: 'Time (s)' }, range: [0, 10] , autorange: true},
+                        yaxis: { title: { text: 'Ornstein-Uhlenbeck process' }, range: [-1, 1] , autorange: true},
+                        datarevision: 0
+                    };
+
+                    var spikes = [{ x: [], y: [], mode: 'markers', marker: { size: 1 }, type: 'scatter' }];
+                    Plotly.react('brian_canvas', spikes, layout);
+
+                    let old_onmessage = brian_sim.worker.onmessage;
+
+                    brian_sim.worker.onmessage = (e) => {
+                        if (e.data.type === 'results') {
+                            let t = [...e.data.results.statemonitor.t];
+                            let index = [...e.data.results.statemonitor.y];
+
+                            // Get current values of tau and sigma
+                            let tauValue = document.getElementById("tau").value;
+                            let sigmaValue = document.getElementById("sigma").value;
+
+                            // Define layout before using it
+                            let layout = {
+                                xaxis: { title: { text: 'Time (s)' }, range: [0, 10] , autorange: true},
+                                yaxis: { title: { text: 'Ornstein-Uhlenbeck process' }, range: [-1, 1] , autorange: true},
+                                datarevision: 0,
+                            };
+
+                            let traces = [
+                                {
+                                    x: t,
+                                    y: index[0],
+                                    mode: 'lines',
+                                    line: { color: 'red' }
+                                }
+                            ];
+
+                            // Update graph with new data
+                            layout.datarevision += 1;  // Increment data revision
+                            Plotly.react('brian_canvas', traces, layout);
+
+                            // Stop progress bar & enable button
+                            document.getElementById("brian_progress_bar").value = 1;
+                            document.getElementById("brian_progress_text").textContent = "Simulation complete!";
+                            document.getElementById("brian_run_button").disabled = false;
+                        } else {
+                            old_onmessage(e);
+                        }
+                    };
+                };
+            </script>
+        </body>
+        </html>
+
+
+ .. code-block:: console
+
+        python - m brian2wasm ornstein_uhlenbeck.py
+
+**Output**
+
+.. image:: ../images/result_ornstein_uhlenbeck.png
