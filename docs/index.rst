@@ -27,7 +27,6 @@ Contents
    :maxdepth: 2
    :titlesonly:
 
-   release_notes
    user/index
    developer/index
    examples/index

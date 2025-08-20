@@ -25,6 +25,7 @@ extensions = [
     'sphinx.ext.autodoc',   # Pulls docstrings from code
     'sphinx.ext.viewcode',  # Adds "view source" links
     'sphinx_rtd_theme',
+    'sphinxcontrib.mermaid',
 ]
 
 templates_path = ['_templates']
@@ -37,4 +38,3 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
-
