@@ -1,15 +1,16 @@
 Deploying Your Simulation to GitHub Pages
-==========================================
+========================================
 
-Once you have created a Brian2WASM simulation, you can deploy it online using
-`GitHub Pages <https://pages.github.com/>`_. This allows others to view and run
-your simulation directly in their browser without needing to install anything.
+You can deploy your ``brian2wasm`` simulation to `GitHub Pages <https://pages.github.com/>`_, enabling others to view and interact with it directly in a web browser without any local installation.
 
 Prerequisites
 -------------
 
-1. Repository should contain ``your_script.py``, brian2wasm's ``pyproject.toml``.
-2. Folder Structure can look something like
+Ensure your repository includes:
+
+- Your ``brian2wasm`` simulation script (e.g., ``your_script.py``).
+- The ``pyproject.toml`` file from the ``brian2wasm`` repository.
+- A folder structure like this:
 
 .. code-block:: text
 
@@ -22,15 +23,19 @@ Prerequisites
     ├─ 📄 your_script.py
     └─ 📄 pyproject.toml
 
+.. note::
+   Ensure all required files, including the simulation script and its corresponding HTML file (if customized), are committed to your repository.
 
 Setup Instructions
 ------------------
 
+Follow these steps to deploy your simulation to GitHub Pages:
+
 1. **Create the GitHub Actions Workflow**
 
-Create a file named ``.github/workflows/deploy.yml`` in your repository with the following content:
+   Create a file named ``.github/workflows/deploy.yml`` in your repository with the following content:
 
-.. code-block:: yaml
+   .. code-block:: yaml
 
       name: Deploy Brian2WASM Simulation to GitHub Pages
 
@@ -39,6 +44,8 @@ Create a file named ``.github/workflows/deploy.yml`` in your repository with the
           branches: [ main ]
           paths:
             - ".github/workflows/deploy.yml"
+            - "**.py"
+            - "**.html"
 
       permissions:
         contents: write
@@ -48,13 +55,13 @@ Create a file named ``.github/workflows/deploy.yml`` in your repository with the
           runs-on: ubuntu-latest
 
           env:
-            SCRIPT: path/to/your/script.py  # 👈 Change this to your script path
+            SCRIPT: path/to/your/script.py  # Replace with your script path
 
           steps:
             - name: Checkout code
               uses: actions/checkout@v4
 
-            - name: Install pixi
+            - name: Install Pixi
               uses: prefix-dev/setup-pixi@v0.8.0
               with:
                 cache: false
@@ -68,9 +75,9 @@ Create a file named ``.github/workflows/deploy.yml`` in your repository with the
             - name: Derive folder paths
               id: derive
               run: |
-                # remove .py extension
+                # Remove .py extension
                 FOLDER_PATH="${SCRIPT%.py}"
-                # just the last folder name (e.g. ornstein_uhlenbeck)
+                # Get the last folder name (e.g., ornstein_uhlenbeck)
                 FOLDER_NAME=$(basename "$FOLDER_PATH")
                 echo "FOLDER_PATH=$FOLDER_PATH" >> $GITHUB_ENV
                 echo "FOLDER_NAME=$FOLDER_NAME" >> $GITHUB_ENV
@@ -96,11 +103,11 @@ Create a file named ``.github/workflows/deploy.yml`` in your repository with the
                    $FOLDER_NAME/ || true
 
                 cat > index.html <<EOF
-                <!doctype html>
+                <!DOCTYPE html>
                 <html lang="en">
                 <head>
-                  <meta charset="utf-8">
-                  <title>${GITHUB_ACTOR}'s brian2wasm simulations</title>
+                  <meta charset="UTF-8">
+                  <title>${GITHUB_ACTOR}'s Brian2WASM Simulations</title>
                   <style>
                     body {
                       font-family: Arial, sans-serif;
@@ -131,7 +138,7 @@ Create a file named ``.github/workflows/deploy.yml`` in your repository with the
                   </style>
                 </head>
                 <body>
-                  <h1>${GITHUB_ACTOR}'s brian2wasm simulations</h1>
+                  <h1>${GITHUB_ACTOR}'s Brian2WASM Simulations</h1>
                   <ul>
                 EOF
 
@@ -153,18 +160,24 @@ Create a file named ``.github/workflows/deploy.yml`` in your repository with the
                   commit -m "Deploy $FOLDER_NAME" || echo "No changes"
                 git push -f https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
 
+   .. note::
+      This workflow triggers on pushes to the ``main`` branch when the workflow file, Python scripts, or HTML files are modified.
+
 2. **Configure Your Script Path**
 
-   In the workflow file, change the ``SCRIPT`` environment variable to point to your Brian2WASM simulation script:
+   Update the ``SCRIPT`` environment variable in the ``deploy.yml`` file to point to your simulation script:
 
    .. code-block:: yaml
 
       env:
         SCRIPT: examples/ornstein_uhlenbeck.py  # Replace with your script path
 
+   .. warning::
+      Ensure the path is correct relative to the repository root. An incorrect path will cause the workflow to fail.
+
 3. **Commit and Push the Workflow**
 
-   Add the workflow file to your repository and push it to the ``main`` branch:
+   Add and commit the workflow file to your repository, then push it to the ``main`` branch:
 
    .. code-block:: bash
 
@@ -174,44 +187,76 @@ Create a file named ``.github/workflows/deploy.yml`` in your repository with the
 
 4. **Enable GitHub Pages (First Time Only)**
 
-   This step only needs to be done once for your repository:
+   To enable GitHub Pages for your repository:
 
-   a. Go to your repository on GitHub
-   b. Click on **Settings** tab
-   c. Scroll down to **Pages** in the left sidebar
-   d. Under **Source**, select **Deploy from a branch**
-   e. Choose **gh-pages** as the branch
-   f. Select **/ (root)** as the folder
-   g. Click **Save**
+   a. Go to your repository on GitHub.
+   b. Click the **Settings** tab.
+   c. Navigate to **Pages** in the left sidebar.
+   d. Under **Source**, select **Deploy from a branch**.
+   e. Choose the **gh-pages** branch.
+   f. Select **/ (root)** as the folder.
+   g. Click **Save**.
 
-   .. image:: ../images/setup_github_pages.png
+   .. figure:: ../images/setup_github_pages.png
+      :alt: GitHub Pages setup screenshot
+      :align: center
 
+      Screenshot of GitHub Pages configuration.
 
-5. **Wait For GitHub Actions To Complete**
+   .. note::
+      This step is only required once per repository.
 
-   After committing your changes, go to the **Actions** tab in your repository.
-   You will notice that **two workflows** run automatically:
+5. **Monitor GitHub Actions**
 
-   1. **Deploy Brian2WASM Simulation to GitHub Pages** → builds your Brian2WASM output and pushes it to the ``gh-pages`` branch.
-   2. **pages-build-deployment** → takes the content from the ``gh-pages`` branch and publishes it live on your GitHub Pages site.
+   After pushing changes, check the **Actions** tab in your repository. Two workflows will run:
 
-   .. image:: ../images/actions_two_steps.png
+   - **Deploy Brian2WASM Simulation to GitHub Pages**: Builds your simulation files and pushes them to the ``gh-pages`` branch.
+   - **pages-build-deployment**: Publishes the ``gh-pages`` branch content to your GitHub Pages site.
 
+   .. figure:: ../images/actions_two_steps.png
+      :alt: GitHub Actions workflows screenshot
+      :align: center
+
+      Screenshot of GitHub Actions workflows.
+
+   .. tip::
+      If the workflow fails, check the error logs in the **Actions** tab to diagnose issues, such as incorrect script paths or missing files.
 
 6. **Access Your Deployed Simulation**
 
-   You can access your deployment in two ways:
+   Once the workflows complete, access your simulation in one of two ways:
 
-   1. Go to **Actions > Deployment > View deployment** and click the provided link.
-   2. Directly visit:
-      ``https://<your-username>.github.io/<your-repository-name>/``
+   - Navigate to **Actions > Deployment > View deployment** and click the provided link.
+   - Visit directly: ``https://<your-username>.github.io/<your-repository-name>/``
 
-   Individual simulations will be available at:
-   ``https://<your-username>.github.io/<your-repository-name>/<simulation-name>/``
+   Individual simulations are available at: ``https://<your-username>.github.io/<your-repository-name>/<simulation-name>/``
 
-   .. image:: ../images/access_deployment.png
+   .. figure:: ../images/access_deployment.png
+      :alt: Accessing deployed simulation screenshot
+      :align: center
+
+      Screenshot of deployment access options.
 
    .. note::
+      For an example of a deployed simulation, see: https://palashchitnavis.github.io/brian2wasm/
 
-      Deployed simulations look like this:
-      https://palashchitnavis.github.io/brian2wasm/
+Troubleshooting
+---------------
+
+Common Issues
+~~~~~~~~~~~~~
+
+- **Workflow fails to find script**:
+  Verify the ``SCRIPT`` path in ``deploy.yml`` is correct and relative to the repository root.
+
+- **Simulation not appearing**:
+  Ensure the simulation script and its corresponding HTML file (if customized) are committed to the repository.
+
+- **GitHub Pages not enabled**:
+  Confirm that GitHub Pages is configured to use the ``gh-pages`` branch in the repository settings.
+
+- **Missing output files**:
+  Check that ``brian.js``, ``wasm_module.js``, ``wasm_module.wasm``, and ``worker.js`` are generated correctly by the ``brian2wasm`` command.
+
+.. tip::
+   Use the GitHub Actions logs to debug issues and ensure all required files are present in the ``gh-pages`` branch.

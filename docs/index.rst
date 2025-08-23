@@ -3,22 +3,29 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to brian2wasm's documentation
-========================
+Welcome to Brian2WASM's Documentation
+====================================
 
-The ``brian2wasm`` package is a Brian 2 simulator “device” that compiles Brian models to WebAssembly and JavaScript using the Emscripten tool-chain.
+The ``brian2wasm`` package is a ``Brian 2`` simulator device that compiles ``Brian 2`` models into WebAssembly and JavaScript using the Emscripten toolchain. It generates a self-contained web folder containing HTML, JavaScript, and a ``.wasm`` binary, enabling simulations to run directly in any modern web browser.
 
-It produces a self-contained web folder (HTML, JavaScript, and .wasm binary) that can run simulations directly in any modern browser.
+.. figure:: ./images/result_ornstein_uhlenbeck.png
+   :alt: Example simulation output
+   :align: center
 
-.. image:: ./images/result_ornstein_uhlenbeck.png
+   Example output of a ``brian2wasm`` simulation.
 
-Please contact us via the
-``Brian Discourse group`` (https://brian.discourse.group/)
-if you are interested in contributing.
+Contributing
+------------
 
-Please report bugs at the `github issue tracker <https://github.com/brian-team/brian2wasm/issues>`_ or in the
-``Brian Discourse group`` (https://brian.discourse.group/).
+We welcome contributions to ``brian2wasm``! If you're interested in contributing, please join the discussion on the `Brian Discourse Group <https://brian.discourse.group/>`_.
 
+Bug Reports
+-----------
+
+To report issues or suggest improvements, use the `GitHub issue tracker <https://github.com/brian-team/brian2wasm/issues>`_ or post in the `Brian Discourse Group <https://brian.discourse.group/>`_.
+
+.. tip::
+   Before submitting a bug report, check the `known issues <known_issues>`_ page to see if your issue is already documented.
 
 Contents
 --------
@@ -31,19 +38,11 @@ Contents
    developer/index
    examples/index
 
-API reference
+API Reference
 -------------
+
 .. toctree::
    :maxdepth: 5
    :titlesonly:
 
    reference/brian2wasm
-
-
-Indices and tables
-------------------
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
-

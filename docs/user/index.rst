@@ -6,5 +6,6 @@ User's guide
 
    installation
    usage
+   html
    deploy
    issues

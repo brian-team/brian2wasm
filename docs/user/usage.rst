@@ -1,37 +1,54 @@
 Using Brian2WASM
-=========================
+================
 
-``brian2wasm`` can run any ``Brian2`` script which are standard python scripts, and therefore be run in the same way.
+``brian2wasm`` enables running standard ``Brian 2`` Python scripts, which are converted to WebAssembly for execution in a browser environment.
 
 Standard Usage
---------------------------
+-------------
 
-You can run ``Brian2`` scripts using ``brian2wasm`` using::
+To run a ``Brian 2`` script with ``brian2wasm``, use the following command:
 
-        python -m brian2wasm filename.py
+.. code-block:: bash
+
+   python -m brian2wasm filename.py
 
 .. important::
-        * filename.py must be a valid Brian2 python script
-        * Do not call ``set_device()`` function inside the script; brian2wasm inserts it automatically
+   - The ``filename.py`` must be a valid ``Brian 2`` Python script.
+   - Do **not** include the ``set_device()`` function in your script, as ``brian2wasm`` automatically handles this.
 
+.. note::
+   Ensure your script adheres to ``Brian 2`` syntax and conventions. Refer to the `Brian 2 documentation <https://briansimulator.org/>`_ for guidance.
 
 Command-Line Options
---------------------------
+--------------------
 
-``brian2wasm`` provides a few optional flags to customize its behavior:
+``brian2wasm`` supports the following optional command-line flags to customize its behavior:
 
-1. ``--no-server`` ::
+1. **--no-server**
 
-        python -m brian2wasm filename.py --no-server
+   .. code-block:: bash
 
-.. important::
-        * Generates the WebAssembly/HTML output, but does not launch the local preview server.
-        * Useful if you only want the build artifacts (e.g. filename.html, filename.js, filename.wasm) and plan to serve them yourself.
+      python -m brian2wasm filename.py --no-server
 
-2. ``--skip-install`` ::
+   .. important::
+      - Generates WebAssembly and HTML output files (e.g., ``filename.html``, ``filename.js``, ``filename.wasm``) without launching a local preview server.
+      - Use this option if you want to manually serve or distribute the generated files.
 
-        python -m brian2wasm filename.py --skip-install
+   .. tip::
+      This is useful for deploying the output to a web server or for further customization of the generated files.
 
-.. important::
-        * Runs brian2wasm without checking for or activating Emscripten SDK (EMSDK).
-        * Use this if EMSDK is already installed and available in your environment (e.g. via Conda, Pixi, or a manual install).
+2. **--skip-install**
+
+   .. code-block:: bash
+
+      python -m brian2wasm filename.py --skip-install
+
+   .. important::
+      - Bypasses the check and activation of the Emscripten SDK (EMSDK).
+      - Use this only if the EMSDK is already configured and available in your environment (e.g., via Pixi, Conda, or a manual installation).
+
+   .. warning::
+      Running with ``--skip-install`` without a properly configured EMSDK will result in errors. Verify your EMSDK setup by running ``emcc --version`` before using this option.
+
+.. note::
+   The generated WebAssembly files can be hosted on any standard web server or viewed locally by opening the ``filename.html`` file in a web browser.
