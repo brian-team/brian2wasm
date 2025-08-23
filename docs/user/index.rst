@@ -6,5 +6,5 @@ User's guide
 
    installation
    usage
-   publish
+   deploy
    issues
