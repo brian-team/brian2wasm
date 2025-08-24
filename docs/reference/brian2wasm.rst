@@ -9,6 +9,7 @@ Submodules
 
    brian2wasm.device
    brian2wasm.functions
+   brian2wasm.__main__
 
 Module contents
 ---------------

@@ -8,7 +8,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath("."))
+sys.path.insert(0, os.path.abspath(".."))
 
 
 # -- Project information -----------------------------------------------------
@@ -22,11 +22,18 @@ release = '0.1.0'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',   # Pulls docstrings from code
-    'sphinx.ext.viewcode',  # Adds "view source" links
+    'sphinx.ext.autodoc',
+    'sphinx.ext.viewcode',
     'sphinx_rtd_theme',
+    "sphinx.ext.napoleon",
+    "sphinx.ext.viewcode",
     'sphinxcontrib.mermaid',
 ]
+
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True
+napoleon_include_private_with_doc = True
+napoleon_include_special_with_doc = True
 
 templates_path = ['_templates']
 exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
