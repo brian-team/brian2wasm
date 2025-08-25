@@ -49,8 +49,8 @@ python = ">=3.10"
 emsdk = "*"        
 
 [tool.pixi.pypi-dependencies]
-brian2wasm = "*"
-brian2 = "==2.9.0"         
+brian2wasm =  "*"
+brian2 = ">=2.9.0"         
 
 [tool.pixi.tasks]
 setup = "emsdk install latest && emsdk activate latest"
