@@ -68,7 +68,7 @@ After the simulation completes, variables from your ``Brian 2`` script are acces
 Variable Access Examples
 ~~~~~~~~~~~~~~~~~~~~~~~
 
-- For a spike monitor named ``spikemon``:
+- For a spike monitor named ``spikemonitor``:
 
   .. code-block:: javascript
 
@@ -78,7 +78,7 @@ Variable Access Examples
      // Access neuron indices
      var neuron_indices = brian_results['spikemonitor'].i;
 
-- For a state monitor named ``statemon`` recording voltage:
+- For a state monitor named ``statemonitor`` recording voltage:
 
   .. code-block:: javascript
 

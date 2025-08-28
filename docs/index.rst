@@ -25,7 +25,7 @@ Bug Reports
 To report issues or suggest improvements, use the `GitHub issue tracker <https://github.com/brian-team/brian2wasm/issues>`_ or post in the `Brian Discourse Group <https://brian.discourse.group/>`_.
 
 .. tip::
-   Before submitting a bug report, check the `known issues <known_issues>`_ page to see if your issue is already documented.
+   Before submitting a bug report, check the `known issues <user/issues.html>`_ page to see if your issue is already documented.
 
 Contents
 --------
