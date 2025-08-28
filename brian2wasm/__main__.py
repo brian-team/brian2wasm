@@ -71,10 +71,10 @@ def main():
     # Check if the script exists and is a Python file
     if not os.path.isfile(script_path):
         full_path = os.path.abspath(script_path)
-        print(f"❌ Error: File '{full_path}' does not exist.", file=sys.stderr)
+        print(f"Error: File '{full_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
     if not script_path.endswith(".py"):
-        print(f"❌ Error: File '{script_path}' is not a Python script (.py).", file=sys.stderr)
+        print(f"Error: File '{script_path}' is not a Python script (.py).", file=sys.stderr)
         sys.exit(1)
 
     if not args.skip_install:
@@ -96,14 +96,14 @@ def main():
 
     # Inject required lines at the top
     if has_html_file:
-        print(f"✅ HTML file found: '{html_file_path}'")
+        print(f"HTML file found: '{html_file_path}'")
         injection = (
             "from brian2 import set_device\n"
             "import brian2wasm\n"
             f"set_device('wasm_standalone', directory='{script_name}', html_file='{html_file}')\n"
         )
     else:
-        print("ℹ️  HTML file not found: using default HTML template.")
+        print("HTML file not found: using default HTML template.")
         injection = (
             "from brian2 import set_device\n"
             "import brian2wasm\n"
@@ -120,14 +120,14 @@ def main():
         if args.no_server:
             os.environ['BRIAN2WASM_NO_SERVER'] = '1'
 
-        print(f"📄 Script path: {os.path.abspath(script_path)}")
-        print(f"📁 Directory: {script_dir}")
+        print(f"Script path: {os.path.abspath(script_path)}")
+        print(f"Directory: {script_dir}")
         exec_globals = {'__name__': '__main__', '__file__': os.path.abspath(script_path)}
         compiled_script = compile(modified_script, script_path, 'exec')
         exec(compiled_script, exec_globals)
 
     except Exception as e:
-        print(f"❌ Error running script: {e}", file=sys.stderr)
+        print(f"Error running script: {e}", file=sys.stderr)
         sys.exit(1)
 
     finally:
@@ -168,7 +168,7 @@ def check_emsdk():
     conda_emsdk_dir = os.environ.get("CONDA_EMSDK_DIR")
 
     if not emsdk and not conda_emsdk_dir:
-        print("❌ EMSDK and CONDA_EMSDK_DIR not found. That means EMSDK is not installed.")
+        print("EMSDK and CONDA_EMSDK_DIR not found. That means EMSDK is not installed.")
         print("   ➤ If you are using **Pixi**, run:")
         print("     pixi add emsdk && pixi install")
         print("   ➤ If you are using **Conda**, run:")
@@ -177,20 +177,20 @@ def check_emsdk():
         print("     https://emscripten.org/index.html#")
         sys.exit(1)
 
-    print(f"✅ EMSDK is installed and CONDA_EMSDK_DIR is found")
+    print(f"EMSDK is installed and CONDA_EMSDK_DIR is found")
 
     try:
-        print("🔧 Attempting to activate EMSDK with: emsdk activate latest")
+        print("Attempting to activate EMSDK with: emsdk activate latest")
         result = subprocess.run(["./emsdk", "activate", "latest"], cwd=conda_emsdk_dir, check=False, capture_output=True, text=True)
         if result.returncode != 0:
-            print("❌ Failed to activate EMSDK:")
+            print("Failed to activate EMSDK:")
             choice = input("Do you want to install and activate EMSDK now? (y/n) ")
             if choice == 'y':
                 try:
                     subprocess.run(["./emsdk", "install", "latest"], cwd=conda_emsdk_dir, check=True)
-                    print("✅ EMSDK install & activation succeeded. You can run the script now.")
+                    print("EMSDK install & activation succeeded. You can run the script now.")
                 except subprocess.CalledProcessError as e:
-                    print("❌ Failed to activate EMSDK:")
+                    print("Failed to activate EMSDK:")
                     print("   ➤ Please run the following manually in your terminal and try again:")
                     print("       cd $CONDA_EMSDK_DIR && ./emsdk install latest && ./emsdk activate latest")
             else:
@@ -199,9 +199,9 @@ def check_emsdk():
 
             sys.exit(1)
         else:
-            print("✅ EMSDK activation succeeded.")
+            print("EMSDK activation succeeded.")
     except Exception as e:
-        print(f"❌ Error while running EMSDK activation: {e}")
+        print(f"Error while running EMSDK activation: {e}")
         sys.exit(1)
 
 
