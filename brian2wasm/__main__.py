@@ -7,49 +7,44 @@ import subprocess
 
 def main():
     """
-        Command-line interface for **Brian2Wasm**.
+    Command-line interface entry point for Brian2Wasm.
 
-        Usage
-        -----
-        ``python -m brian2wasm <script.py> [--no-server] [--skip-install]``
+    This function validates the given script, injects the required
+    ``set_device('wasm_standalone', …)`` call, ensures EMSDK is
+    available (unless skipped), and executes the modified script.
 
-        Parameters
-        ----------
-        script : str
-            Path to the user’s Python model. The file **must** end with
-            ``.py`` and must not call ``set_device`` itself – the CLI inserts
-            the appropriate ``set_device('wasm_standalone', …)`` line
-            automatically.
-        --no-server : flag, optional
-            Generate the WASM/HTML output without starting the local preview
-            web-server (sets the ``BRIAN2WASM_NO_SERVER`` environment
-            variable for the subprocess).
-        --skip-install : flag, optional
-            Run Brian2WASM without checking or installing EMSDK. Use this if
-            you are sure EMSDK is already installed and configured in your
-            environment.
+    Parameters
+    ----------
+    script : str
+        Path to the Python model file. The file must exist, end with
+        ``.py``, and must not call ``set_device`` directly, since this
+        function injects the correct call automatically.
+    --no-server : bool, optional
+        If given, generates the WASM/HTML output without starting the
+        local preview web server. Internally sets the environment
+        variable ``BRIAN2WASM_NO_SERVER=1``.
+    --skip-install : bool, optional
+        If given, skips EMSDK installation and activation checks.
+        Use this flag when you are certain EMSDK is already installed
+        and properly configured in your environment.
 
-        Behaviour
-        ---------
-        1. Validates that *script* exists and is a ``.py`` file.
-        2. Looks for an ``<scriptname>.html`` file in the same directory.
-           * If found, passes the HTML file to ``set_device`` so the custom
-             template is used.
-           * Otherwise falls back to the default template.
-        3. Unless *--skip-install* is given, verifies EMSDK installation
-           (Pixi/Conda/CONDA_EMSDK_DIR) and attempts to activate it.
-        4. Prepends the required ``set_device('wasm_standalone', …)`` call to
-           the script source in-memory.
-        5. Executes the modified script with its own directory as working
-           directory, so any relative paths inside the model behave as
-           expected.
+    Raises
+    ------
+    FileNotFoundError
+        If the provided script path does not exist.
+    ValueError
+        If the provided file is not a Python ``.py`` script.
+    RuntimeError
+        If execution of the modified script fails for any reason.
+    SystemExit
+        If errors occur during validation or script execution, the
+        process exits with status code ``1``.
 
-        Exit status
-        -----------
-        * ``0`` – build finished successfully (and server started unless
-          *--no-server* was given).
-        * ``1`` – any error (missing file, not a ``.py`` file, EMSDK not found
-          or not activated, exception during model execution, etc.).
+    Returns
+    -------
+    None
+        This function is intended as a CLI entry point and does not
+        return a value.
     """
 
     parser = argparse.ArgumentParser(
@@ -140,6 +135,35 @@ def main():
 
 
 def check_emsdk():
+    """
+        Verify that the Emscripten SDK (EMSDK) is installed and attempt to activate it.
+
+        This function checks for EMSDK in the current environment, using either
+        the system path (``emsdk`` executable) or the ``CONDA_EMSDK_DIR`` variable.
+        If EMSDK is missing, it prints installation instructions and exits.
+        If EMSDK is found but not activated, it attempts to activate the latest
+        version, optionally prompting the user to install and activate it.
+
+        Parameters
+        ----------
+        None
+            This function takes no arguments.
+
+        Raises
+        ------
+        SystemExit
+            If EMSDK is not found, not activated, or installation/activation
+            fails, the process exits with status code ``1``.
+        RuntimeError
+            If subprocess execution encounters an unexpected failure during
+            EMSDK activation.
+
+        Returns
+        -------
+        None
+            This function is intended as a setup check and does not
+            return a value. Its success or failure is indicated by process exit.
+    """
     emsdk = shutil.which("emsdk")
     conda_emsdk_dir = os.environ.get("CONDA_EMSDK_DIR")
 

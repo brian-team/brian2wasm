@@ -22,11 +22,9 @@ release = '0.1.0'
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
-    'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinx_rtd_theme',
     "sphinx.ext.napoleon",
-    "sphinx.ext.viewcode",
     'sphinxcontrib.mermaid',
 ]
 
