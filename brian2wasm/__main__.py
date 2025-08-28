@@ -4,44 +4,33 @@ import os
 
 def main():
     """
-        Command-line interface for **Brian2Wasm**.
-
-        Usage
-        -----
-        ``python -m brian2wasm <script.py> [--no-server]``
+        Run a Brian2Wasm simulation from the command line.
 
         Parameters
         ----------
         script : str
-            Path to the user’s Python model. The file **must** end with
-            ``.py`` and must not call ``set_device`` itself – the CLI inserts
-            the appropriate ``set_device('wasm_standalone', …)`` line
-            automatically.
-        --no-server : flag, optional
-            Generate the WASM/HTML output without starting the local preview
-            web-server (sets the ``BRIAN2WASM_NO_SERVER`` environment
-            variable for the subprocess).
+            Path to the Python model file. Must end with ``.py`` and must not call
+            ``set_device`` directly, as the CLI automatically inserts the required
+            ``set_device('wasm_standalone', …)`` line.
+        no_server : bool, optional
+            If True, generate the WASM/HTML output without starting the local
+            preview server (sets the ``BRIAN2WASM_NO_SERVER`` environment variable).
 
-        Behaviour
-        ---------
-        1. Validates that *script* exists and is a ``.py`` file.
-        2. Looks for an ``<scriptname>.html`` file in the same directory.
-           * If found, passes the HTML file to ``set_device`` so the custom
-             template is used.
-           * Otherwise falls back to the default template.
-        3. Prepends the required ``set_device('wasm_standalone', …)`` call to
-           the script source in-memory.
-        4. Executes the modified script with its own directory as working
-           directory, so any relative paths inside the model behave as
-           expected.
+        Raises
+        ------
+        FileNotFoundError
+            If the given script does not exist.
+        ValueError
+            If the provided file is not a ``.py`` script.
+        RuntimeError
+            If execution of the model fails for any reason.
 
-        Exit status
-        -----------
-        * ``0`` – build finished successfully (and server started unless
-          *--no-server* was given).
-        * ``1`` – any error (missing file, not a ``.py`` file, exception
-          during model execution, etc.).
-        """
+        Notes
+        -----
+        This command is typically invoked as::
+
+            python -m brian2wasm <script.py> [--no-server]
+    """
 
     parser = argparse.ArgumentParser(
         description="Brian2WASM CLI"

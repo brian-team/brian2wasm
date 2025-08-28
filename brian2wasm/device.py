@@ -21,7 +21,6 @@ from brian2.devices import all_devices
 from brian2.devices.cpp_standalone.device import CPPStandaloneDevice, CPPWriter
 from brian2.utils.filetools import ensure_directory
 
-__all__ = []
 
 logger = get_logger(__name__)
 
