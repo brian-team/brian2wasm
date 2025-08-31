@@ -31,6 +31,10 @@ jobs:
       - name: Install dependencies
         run: pixi install --locked
 
+      # 👉 Override PyPI with local brian2wasm only for PRs
+      - name: Install local brian2wasm (editable)
+        run: pip install -e .
+
       # Run setup
       - name: Run setup
         run: pixi run setup
