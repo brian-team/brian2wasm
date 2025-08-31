@@ -1,6 +1,6 @@
 name: Test PR on Linux, macOS and Windows
 
-on: [pull_request]
+on: [push]
 
 jobs:
   test:
