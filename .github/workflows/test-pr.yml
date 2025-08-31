@@ -36,7 +36,9 @@ jobs:
 
       # 👉 Override PyPI with local brian2wasm only for PRs
       - name: Install local brian2wasm (editable)
-        run: pip install -e .
+        run: |
+          export SETUPTOOLS_SCM_PRETEND_VERSION=0.0.0
+          pip install -e .
 
       # Run setup
       - name: Run setup
