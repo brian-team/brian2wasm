@@ -758,6 +758,9 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             + prefs["codegen.cpp.library_dirs"]
             + [d for c in self.code_objects.values() for d in c.compiler_kwds.get("library_dirs", [])]
         )
+        # This library is only relevant when targetting Windows
+        if "advapi32" in self.libraries:
+            self.libraries.remove("advapi32")
         libraries = (
             self.libraries
             + prefs["codegen.cpp.libraries"]
