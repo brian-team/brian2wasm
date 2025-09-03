@@ -822,7 +822,8 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         )
 
         if compile:
-            self.compile_source(directory, compiler, debug, clean)
+            # We switch the compiler name back to `mscv` on Windows, to make sure it uses `nmake`
+            self.compile_source(directory, 'msvc' if os.name == 'nt' else compiler, debug, clean)
             if run:
                 self.run(directory, results_directory, with_output, run_args)
 
