@@ -20,19 +20,11 @@ jobs:
           fetch-depth: '0'
           fetch-tags: 'true'
 
-      # Install Pixi
-      - name: Install pixi
+      # Install Pixi and workspace
+      - name: Install pixi and workspace
         uses: prefix-dev/setup-pixi@v0.8.0
         with:
           cache: false
-
-      # Verify Pixi installation
-      - name: Verify Pixi version
-        run: pixi --version
-
-      # Run pixi install
-      - name: Install dependencies
-        run: pixi install --locked
 
       # Run setup
       - name: Run setup
