@@ -2,7 +2,7 @@ name: Deploy Brian2WASM Simulation to GitHub Pages
 
 on:
   push:
-    branches: [ deploy ]
+    branches: [ main ]
 
 permissions:
   contents: write
@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      SCRIPT: examples/non_reliability.py  # 👈 set this
+      SCRIPT: path/to/your/script # 👈 set this
 
     steps:
       - name: Checkout code
@@ -30,7 +30,6 @@ jobs:
         run: pixi run setup
 
       - name: Derive folder paths
-        id: derive
         run: |
           FOLDER_PATH="${SCRIPT%.py}"
           FOLDER_NAME=$(basename "$FOLDER_PATH")
@@ -42,39 +41,45 @@ jobs:
           python -m brian2wasm $SCRIPT --no-server
         shell: pixi run bash -e {0}
 
-      - name: Prepare deploy folder
+      - name: Fetch existing gh-pages
         run: |
-          rm -rf $FOLDER_NAME
-          mkdir -p $FOLDER_NAME
+          rm -rf public
+          git clone --branch gh-pages --depth 1 https://github.com/${{ github.repository }} public
+
+      - name: Copy new simulation output
+        run: |
+          rm -rf public/$FOLDER_NAME
+          mkdir -p public/$FOLDER_NAME
           cp $FOLDER_PATH/brian.js \
              $FOLDER_PATH/index.html \
              $FOLDER_PATH/wasm_module.js \
              $FOLDER_PATH/wasm_module.wasm \
              $FOLDER_PATH/worker.js \
-             $FOLDER_NAME/
-      
-          # 👇 Set this to your own template if you want a custom index.html
-          TEMPLATE="brian2wasm/index_template.html"
-          cp "$TEMPLATE" index.html
-      
+             public/$FOLDER_NAME/
+
+      - name: Rebuild main index.html
+        run: |
+          TEMPLATE="brian2wasm/index_template.html"  # 👈 Set this if you want your own template
+          cp "$TEMPLATE" public/index.html
+
           LINKS=""
-          for d in */ ; do
+          for d in public/*/ ; do
             if [ -f "$d/index.html" ]; then
               NAME=$(basename "$d")
-              LINKS="$LINKS    <li><a href=\"$NAME/\">$NAME</a></li>\n"
+              LINKS="$LINKS    <li><a href=\"$NAME/\">$NAME</a></li>
+                    "
             fi
           done
-      
-          # Replace placeholders in the template
-          sed -i "s/{{ACTOR}}/${GITHUB_ACTOR}/g" index.html
+
+          sed -i "s/{{ACTOR}}/${GITHUB_ACTOR}/g" public/index.html
           sed -i "/{{LINKS}}/{
             s/{{LINKS}}//g
             r /dev/stdin
-          }" index.html <<< "$LINKS"
+          }" public/index.html <<< "$LINKS"
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: .
+          publish_dir: ./public
           publish_branch: gh-pages
