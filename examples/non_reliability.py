@@ -1,7 +1,5 @@
 #source: https://brian2.readthedocs.io/en/stable/examples/non_reliability.html#example-non-reliability
 from brian2 import *
-import brian2wasm
-set_device('wasm_standalone', directory='non_reliability')
 
 N = 24
 tau = 20*ms

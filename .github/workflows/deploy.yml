@@ -1,0 +1,85 @@
+name: Deploy Brian2WASM Simulation to GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    env:
+      SCRIPT: path/to/your/script # 👈 set this
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install pixi
+        uses: prefix-dev/setup-pixi@v0.8.0
+        with:
+          cache: false
+
+      - name: Install dependencies
+        run: pixi install --locked
+
+      - name: Run setup
+        run: pixi run setup
+
+      - name: Derive folder paths
+        run: |
+          FOLDER_PATH="${SCRIPT%.py}"
+          FOLDER_NAME=$(basename "$FOLDER_PATH")
+          echo "FOLDER_PATH=$FOLDER_PATH" >> $GITHUB_ENV
+          echo "FOLDER_NAME=$FOLDER_NAME" >> $GITHUB_ENV
+
+      - name: Generate simulation files
+        run: |
+          python -m brian2wasm $SCRIPT --no-server
+        shell: pixi run bash -e {0}
+
+      - name: Fetch existing gh-pages
+        run: |
+          rm -rf public
+          git clone --branch gh-pages --depth 1 https://github.com/${{ github.repository }} public
+
+      - name: Copy new simulation output
+        run: |
+          rm -rf public/$FOLDER_NAME
+          mkdir -p public/$FOLDER_NAME
+          cp $FOLDER_PATH/brian.js \
+             $FOLDER_PATH/index.html \
+             $FOLDER_PATH/wasm_module.js \
+             $FOLDER_PATH/wasm_module.wasm \
+             $FOLDER_PATH/worker.js \
+             public/$FOLDER_NAME/
+
+      - name: Rebuild main index.html
+        run: |
+          TEMPLATE="brian2wasm/index_template.html"  # 👈 Set this if you want your own template
+          cp "$TEMPLATE" public/index.html
+
+          LINKS=""
+          for d in public/*/ ; do
+            if [ -f "$d/index.html" ]; then
+              NAME=$(basename "$d")
+              LINKS="$LINKS    <li><a href=\"$NAME/\">$NAME</a></li>
+                    "
+            fi
+          done
+
+          sed -i "s/{{ACTOR}}/${GITHUB_ACTOR}/g" public/index.html
+          sed -i "/{{LINKS}}/{
+            s/{{LINKS}}//g
+            r /dev/stdin
+          }" public/index.html <<< "$LINKS"
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          publish_branch: gh-pages
