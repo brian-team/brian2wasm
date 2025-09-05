@@ -2,9 +2,7 @@ name: Deploy Brian2WASM Simulation to GitHub Pages
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - ".github/workflows/deploy.yml"
+    branches: [ deploy ]
 
 permissions:
   contents: write
