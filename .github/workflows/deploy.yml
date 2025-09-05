@@ -61,10 +61,12 @@ jobs:
           for d in */ ; do
             if [ -f "$d/index.html" ]; then
               NAME=$(basename "$d")
-              LINKS="$LINKS<li><a href=\"$NAME/\">$NAME</a></li>\n"
+              LINKS="$LINKS    <li><a href=\"$NAME/\">$NAME</a></li>\n"
             fi
           done
       
+          # Replace placeholders in the template
+          sed -i "s/{{ACTOR}}/${GITHUB_ACTOR}/g" index.html
           sed -i "/{{LINKS}}/{
             s/{{LINKS}}//g
             r /dev/stdin
