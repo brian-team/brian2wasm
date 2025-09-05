@@ -21,7 +21,6 @@ from brian2.devices import all_devices
 from brian2.devices.cpp_standalone.device import CPPStandaloneDevice, CPPWriter
 from brian2.utils.filetools import ensure_directory
 
-__all__ = []
 
 logger = get_logger(__name__)
 
@@ -73,16 +72,81 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
     The `Device` used for WASM simulations.
     """
     def __init__(self, *args, **kwds):
+        """
+        Initialize the WASM standalone device.
+
+        This method prepares the device by setting up internal attributes
+        and delegating initialization to the parent ``CPPStandaloneDevice``.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments passed to the parent ``CPPStandaloneDevice``.
+        **kwds : dict
+            Keyword arguments passed to the parent ``CPPStandaloneDevice``.
+
+        Raises
+        ------
+        None
+
+        Returns
+        -------
+        None
+            Initializes internal state; does not return a value.
+        """
         self.transfer_results = None
         super(WASMStandaloneDevice, self).__init__(*args, **kwds)
 
     def transfer_only(self, variableviews):
+        """
+        Mark variables for transfer from WASM to JavaScript.
+
+        This method specifies which simulation variables should be available
+        in JavaScript after the simulation completes.
+
+        Parameters
+        ----------
+        variableviews : list
+            List of ``VariableView`` objects to be transferred.
+
+        Raises
+        ------
+        AssertionError
+            If transfer variables are already set before calling this method.
+
+        Returns
+        -------
+        None
+            Stores the selected variables for later transfer; does not return a value.
+        """
         assert self.transfer_results is None
         self.transfer_results = []
         for variableview in variableviews:
             self.transfer_results.append(variableview.variable)
 
     def activate(self, *args, **kwargs):
+        """
+        Activate the WASM standalone device for simulation.
+
+        This method overrides template configuration and ensures WASM-specific
+        headers are included in the generated code.
+
+        Parameters
+        ----------
+        *args : tuple
+            Positional arguments passed to the parent activate method.
+        **kwargs : dict
+            Keyword arguments passed to the parent activate method.
+
+        Raises
+        ------
+        None
+
+        Returns
+        -------
+        None
+            Configures the device and modifies build templates; does not return a value.
+        """
         super(WASMStandaloneDevice, self).activate(*args, **kwargs)
         # Overwrite the templater to prefer our templates
         self.code_object_class().templater = self.code_object_class().templater.derive('brian2wasm')
@@ -98,6 +162,37 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         networks,
         timed_arrays,
     ):
+        """
+        Generate the main C++ source file for WASM compilation.
+
+        This method produces the core simulation code, including objects,
+        arrays, and transfer variables, and writes it to ``objects.*`` files.
+
+        Parameters
+        ----------
+        writer : CodeWriter
+            Object for writing generated code.
+        arange_arrays : dict
+            Specifications for arange arrays.
+        synapses : set
+            Set of ``Synapses`` objects in the simulation.
+        static_array_specs : dict
+            Specifications for static arrays.
+        networks : set
+            Set of ``Network`` objects in the simulation.
+        timed_arrays : dict
+            Specifications for timed arrays.
+
+        Raises
+        ------
+        IOError
+            If writing the generated code to files fails.
+
+        Returns
+        -------
+        None
+            Generates source files on disk; does not return a value.
+        """
         arr_tmp = self.code_object_class().templater.objects(
             None,
             None,
@@ -120,6 +215,37 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         writer.write("objects.*", arr_tmp)
 
     def generate_makefile(self, writer, compiler, compiler_flags, linker_flags, nb_threads, debug):
+        """
+        Generate a platform-specific makefile for Emscripten compilation.
+
+        This method configures compiler and linker flags, resolves SDK paths,
+        and writes a makefile tailored for WASM builds.
+
+        Parameters
+        ----------
+        writer : CodeWriter
+            Object for writing generated files.
+        compiler : str
+            Compiler name (typically ``emcc``).
+        compiler_flags : str
+            Compiler flags to apply.
+        linker_flags : str
+            Linker flags to apply.
+        nb_threads : int
+            Number of threads (unused for WASM).
+        debug : bool
+            Whether to include debug symbols.
+
+        Raises
+        ------
+        RuntimeError
+            If Emscripten paths or build options are invalid.
+
+        Returns
+        -------
+        None
+            Writes the makefile to disk; does not return a value.
+        """
         preloads = ' '.join(f'--preload-file static_arrays/{static_array}'
                             for static_array in sorted(self.static_arrays.keys()))
         rm_cmd = 'rm $(OBJS) $(PROGRAM) $(DEPS)'
@@ -133,12 +259,13 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         source_files = ' '.join(sorted(writer.source_files))
         preamble_file = os.path.join(os.path.dirname(__file__), 'templates', 'pre.js')
 
-        emsdk_path = (
+        prefs.devices.wasm_standalone.emsdk_directory = (
                 prefs.devices.wasm_standalone.emsdk_directory
                 or os.environ.get("EMSDK")
                 or os.environ.get("CONDA_EMSDK_DIR")
-                or ""
         )
+        emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
+
         emsdk_version = prefs.devices.wasm_standalone.emsdk_version
         if not emsdk_path:
             # Check whether EMSDK is already activated
@@ -174,6 +301,29 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         writer.write(outputfile_name, makefile_tmp)
 
     def copy_source_files(self, writer, directory):
+        """
+        Copy JavaScript runtime files to the build directory.
+
+        This method copies required JavaScript files (``worker.js``, ``brian.js``)
+        and optionally a custom ``index.html`` into the build folder.
+
+        Parameters
+        ----------
+        writer : CodeWriter
+            Object containing source file information.
+        directory : str
+            Target directory for copied files.
+
+        Raises
+        ------
+        IOError
+            If copying files fails.
+
+        Returns
+        -------
+        None
+            Populates the build directory with JavaScript runtime files.
+        """
         super(WASMStandaloneDevice, self).copy_source_files(writer, directory)
         shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'worker.js'), directory)
         shutil.copy(os.path.join(os.path.dirname(__file__), 'templates', 'brian.js'), directory)
@@ -181,6 +331,28 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             shutil.copy(self.build_options['html_file'], os.path.join(directory, 'index.html'))
 
     def get_report_func(self, report):
+        """
+        Generate C++ code for simulation progress reporting.
+
+        This method produces source code that reports simulation progress
+        to the console or forwards updates to JavaScript via ``EM_ASM``.
+
+        Parameters
+        ----------
+        report : str or None
+            Type of progress reporting: None, 'text', 'stdout', 'stderr',
+            or custom C++ code.
+
+        Raises
+        ------
+        ValueError
+            If the report type is unsupported.
+
+        Returns
+        -------
+        str
+            The generated C++ source code for progress reporting.
+        """
         # Code for a progress reporting function
         standard_code = """
         std::string _format_time(float time_in_s)
@@ -253,6 +425,45 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
 
     def network_run(self, net, duration, report=None, report_period=10*second,
                     namespace=None, profile=None, level=0, **kwds):
+        """
+        Execute a Brian2 network simulation for the WASM backend.
+
+        This method organizes network objects, generates C++ execution code,
+        and triggers the build if ``build_on_run`` is enabled.
+
+        Parameters
+        ----------
+        net : Network
+            The Brian2 network to simulate.
+        duration : Quantity
+            Duration of the simulation (must be non-negative).
+        report : str or None, optional
+            Progress reporting mode. Default is None.
+        report_period : Quantity, optional
+            Interval between progress reports. Default is 10*second.
+        namespace : dict, optional
+            Local namespace for variable resolution. Default is None.
+        profile : bool, optional
+            Whether to enable profiling. Default is None.
+        level : int, optional
+            Stack level for namespace detection. Default is 0.
+        **kwds : dict
+            Additional keyword arguments.
+
+        Raises
+        ------
+        ValueError
+            If duration is negative.
+        NotImplementedError
+            If multiple incompatible report functions are used.
+        RuntimeError
+            If the network was already built and run.
+
+        Returns
+        -------
+        None
+            Prepares and builds the simulation; does not return a value.
+        """
         if duration < 0:
             raise ValueError(
                 f"Function 'run' expected a non-negative duration but got '{duration}'"
@@ -361,6 +572,33 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             self.build(direct_call=False, **self.build_options)
 
     def run(self, directory, results_directory, with_output, run_args):
+        """
+        Execute the compiled WASM simulation in a browser environment.
+
+        This method launches the simulation using ``emrun`` and provides
+        browser-based progress reporting and visualization.
+
+        Parameters
+        ----------
+        directory : str
+            Build directory containing compiled files.
+        results_directory : str
+            Directory to store simulation results.
+        with_output : bool
+            Whether to forward stdout/stderr output.
+        run_args : list
+            Extra command-line arguments for the execution environment.
+
+        Raises
+        ------
+        RuntimeError
+            If the server cannot be launched or required files are missing.
+
+        Returns
+        -------
+        None
+            Runs the simulation in a browser; does not return a value.
+        """
         html_file = self.build_options['html_file']
         html_content = self.build_options['html_content']
         if html_file is None:
@@ -390,62 +628,71 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             if os.environ.get('BRIAN2WASM_NO_SERVER','0') == '1':
                 print("Skipping server startup (--no-server flag set)")
                 return
-            
-            if platform.system() == "Windows":
-                cmd_line = f'emrun "index.html"'
-                try:
-                    os.system(cmd_line)
-                except Exception as e:
-                    raise RuntimeError(f"Failed to run emrun command: {cmd_line}. "
-                                       "Please ensure that emrun is installed and available in your PATH.") from e
 
-            if prefs.devices.wasm_standalone.emsdk_directory:
-                emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
-                run_cmd = ['source', f'{emsdk_path}/emsdk_env.sh', '&&', 'emrun', 'index.html']
+            emsdk_path = prefs.devices.wasm_standalone.emsdk_directory
+            os.environ['EMSDK_QUIET'] = '1'
+
+            if platform.system() == "Windows":
+                cmd_line = f'cmd.exe /C "call {emsdk_path}\\emsdk_env.bat & emrun index.html"'
+
             else:
-                run_cmd = ['emrun', 'index.html']
+                run_cmd = ['source', f'{emsdk_path}/emsdk_env.sh', '&&', 'emrun', 'index.html']
+                cmd_line = f"/bin/bash -c '{' '.join(run_cmd + run_args)}'"
+
             start_time = time.time()
-            os.system(f"/bin/bash -c '{' '.join(run_cmd + run_args)}'")
+            os.system(cmd_line)
             self.timers['run_binary'] = time.time() - start_time
 
     def build(self, html_file=None, html_content=None, **kwds):
         """
-                Build the project for the WASM backend.
+        Build the project for the WASM backend.
 
-                Parameters
-                ----------
-                directory : str, optional
-                    Target folder for the generated project. If ``None`` a temporary
-                    directory is created.  Default: ``"output"``.
-                results_directory : str, optional
-                    Relative sub-folder used at runtime to store simulation results.
-                    Default: ``"results"``.
-                compile : bool, optional
-                    Compile the generated sources with *emcc*.  Default: ``True``.
-                run : bool, optional
-                    Execute the produced JavaScript/WASM bundle after a successful
-                    build (headless node-style run).  Default: ``True``.
-                debug : bool, optional
-                    Add debug symbols and ``-g -DDEBUG`` flags.  Default: ``False``.
-                clean : bool, optional
-                    Remove previously compiled objects before building.  Default:
-                    ``False``.
-                with_output : bool, optional
-                    Forward the program’s stdout/stderr when running.  Default:
-                    ``True``.
-                additional_source_files : list[str] | None
-                    Extra ``.cpp`` files to compile alongside the generated Brian code.
-                run_args : list[str] | None
-                    Additional command-line arguments passed to the executable HTML/
-                    JS harness when *run* is ``True``.
-                direct_call : bool, optional
-                    ``True`` when invoked by user code, ``False`` when invoked
-                    automatically because ``build_on_run=True``.
-                **kwds
-                    Reserved for future keyword arguments; passing unknown names
-                    raises ``TypeError``.
-                """
+        This method orchestrates the full build pipeline from code generation
+        to Emscripten compilation and optional execution.
 
+        Parameters
+        ----------
+        html_file : str, optional
+            Path to a custom HTML template file.
+        html_content : dict, optional
+            Dictionary of HTML template variables.
+        directory : str, optional
+            Target build directory. Defaults to "output".
+        results_directory : str, optional
+            Sub-folder for runtime results. Defaults to "results".
+        compile : bool, optional
+            Whether to compile sources with ``emcc``. Default is True.
+        run : bool, optional
+            Whether to run the generated bundle. Default is True.
+        debug : bool, optional
+            Whether to include debug flags. Default is False.
+        clean : bool, optional
+            Whether to clear old build artifacts. Default is False.
+        with_output : bool, optional
+            Whether to forward stdout/stderr. Default is True.
+        additional_source_files : list of str, optional
+            Extra ``.cpp`` files to include.
+        run_args : list of str, optional
+            Additional runtime arguments.
+        direct_call : bool, optional
+            True when called directly; False if triggered automatically.
+        **kwds : dict
+            Reserved for future options.
+
+        Raises
+        ------
+        RuntimeError
+            If build state is invalid or already executed.
+        TypeError
+            If results_directory is absolute.
+        ValueError
+            If invalid options are passed (e.g., negative threads).
+
+        Returns
+        -------
+        None
+            Produces a build directory with compiled WASM/HTML output.
+        """
         self.build_options.update({'html_file': html_file,
                                    'html_content': html_content})
 
@@ -511,6 +758,9 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
             + prefs["codegen.cpp.library_dirs"]
             + [d for c in self.code_objects.values() for d in c.compiler_kwds.get("library_dirs", [])]
         )
+        # This library is only relevant when targetting Windows
+        if "advapi32" in self.libraries:
+            self.libraries.remove("advapi32")
         libraries = (
             self.libraries
             + prefs["codegen.cpp.libraries"]
@@ -575,7 +825,8 @@ class WASMStandaloneDevice(CPPStandaloneDevice):
         )
 
         if compile:
-            self.compile_source(directory, compiler, debug, clean)
+            # We switch the compiler name back to `mscv` on Windows, to make sure it uses `nmake`
+            self.compile_source(directory, 'msvc' if os.name == 'nt' else compiler, debug, clean)
             if run:
                 self.run(directory, results_directory, with_output, run_args)
 

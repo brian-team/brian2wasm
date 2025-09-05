@@ -5,6 +5,8 @@ The result is a self-contained web folder (`index.html`, `wasm_module.js`, and t
 
 Live examples: <https://brian-team.github.io/brian2wasm/>
 
+Documentation: <https://brian2wasm.readthedocs.io>
+
 > **Status** – functional, but still under active development.
 
 [![PyPI](https://img.shields.io/pypi/v/brian2wasm.svg)](https://pypi.org/project/brian2wasm/)
