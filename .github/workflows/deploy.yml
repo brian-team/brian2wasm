@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      SCRIPT: path/to/your/script.py  # 👈 set this
+      SCRIPT: examples/non_reliability.py  # 👈 set this
 
     steps:
       - name: Checkout code
@@ -34,9 +34,7 @@ jobs:
       - name: Derive folder paths
         id: derive
         run: |
-          # remove .py extension
           FOLDER_PATH="${SCRIPT%.py}"
-          # just the last folder name (e.g. ornstein_uhlenbeck)
           FOLDER_NAME=$(basename "$FOLDER_PATH")
           echo "FOLDER_PATH=$FOLDER_PATH" >> $GITHUB_ENV
           echo "FOLDER_NAME=$FOLDER_NAME" >> $GITHUB_ENV
@@ -46,75 +44,37 @@ jobs:
           python -m brian2wasm $SCRIPT --no-server
         shell: pixi run bash -e {0}
 
-      - name: Deploy to gh-pages
+      - name: Prepare deploy folder
         run: |
-          git fetch origin gh-pages || true
-          git checkout gh-pages || git checkout --orphan gh-pages
-
           rm -rf $FOLDER_NAME
           mkdir -p $FOLDER_NAME
-
           cp $FOLDER_PATH/brian.js \
              $FOLDER_PATH/index.html \
              $FOLDER_PATH/wasm_module.js \
              $FOLDER_PATH/wasm_module.wasm \
              $FOLDER_PATH/worker.js \
-             $FOLDER_NAME/ || true
+             $FOLDER_NAME/
+      
+          # 👇 Set this to your own template if you want a custom index.html
+          TEMPLATE="brian2wasm/index_template.html"
+          cp "$TEMPLATE" index.html
+      
+          LINKS=""
+          for d in */ ; do
+            if [ -f "$d/index.html" ]; then
+              NAME=$(basename "$d")
+              LINKS="$LINKS<li><a href=\"$NAME/\">$NAME</a></li>\n"
+            fi
+          done
+      
+          sed -i "/{{LINKS}}/{
+            s/{{LINKS}}//g
+            r /dev/stdin
+          }" index.html <<< "$LINKS"
 
-          cat > index.html <<EOF
-          <!doctype html>
-          <html lang="en">
-          <head>
-            <meta charset="utf-8">
-            <title>${GITHUB_ACTOR}'s brian2wasm simulations</title>
-            <style>
-              body {
-                font-family: Arial, sans-serif;
-                margin: 40px auto;
-                max-width: 700px;
-                text-align: center;
-                background: #fafafa;
-              }
-              h1 {
-                font-size: 2em;
-                margin-bottom: 1em;
-                color: #222;
-              }
-              ul {
-                list-style: disc;
-                text-align: left;
-                display: inline-block;
-                font-size: 1.2em;
-                line-height: 1.6;
-              }
-              a {
-                text-decoration: none;
-                color: #007acc;
-              }
-              a:hover {
-                text-decoration: underline;
-              }
-            </style>
-          </head>
-          <body>
-            <h1>${GITHUB_ACTOR}'s brian2wasm simulations</h1>
-            <ul>
-          EOF
-          
-                    for d in */ ; do
-                      if [ -f "$d/index.html" ]; then
-                        NAME=$(basename "$d")
-                        echo "    <li><a href=\"$NAME/\">$NAME</a></li>" >> index.html
-                      fi
-                    done
-          
-                    cat >> index.html <<EOF
-            </ul>
-          </body>
-          </html>
-          EOF
-
-          git add $FOLDER_NAME index.html
-          git -c user.name='github-actions' -c user.email='github-actions@github.com' \
-            commit -m "Deploy $FOLDER_NAME" || echo "No changes"
-          git push -f https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }} gh-pages
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          publish_branch: gh-pages
