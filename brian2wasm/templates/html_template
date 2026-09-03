@@ -21,6 +21,7 @@
 <div id="brian_canvas" style='width: {{canvas_width}}; height: {{canvas_height}};'></div>
 <progress id="brian_progress_bar" max=1.0 value=0.0 style="width: 90%"></progress>
 <div id='brian_progress_text'></div>
+<div id='brian_error_text' style="display: none; color: #b00020; font-weight: bold; margin: 0.5em 0;"></div>
 <button type="button" id='brian_run_button' onclick="brian_sim.run();">Run</button>
 </body>
 </html>

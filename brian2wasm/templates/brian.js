@@ -1,10 +1,11 @@
 class BrianSimulation {
-    constructor(result_plots, progress, run_button) {
+    constructor(result_plots, progress, run_button, error_text_id) {
         this.worker = new Worker('worker.js');
         this.result_plots = (typeof result_plots !== "undefined") ? result_plots : [];
         this.plot_funcs = [];
         this.progress = (typeof progress !== "undefined") ? progress : {type: 'bar', bar_id: 'brian_progress_bar', text_id: 'brian_progress_text'};
         this.run_button = (typeof run_button !== "undefined") ? run_button : "brian_run_button";
+        this.error_text_id = (typeof error_text_id !== "undefined") ? error_text_id : "brian_error_text";
 
     }
 
@@ -12,6 +13,8 @@ class BrianSimulation {
         this.run_button = document.getElementById(this.run_button);
         this.progress_bar = document.getElementById(this.progress.bar_id);
         this.progress_text = document.getElementById(this.progress.text_id);
+        // Optional element to display error messages; fine if not present in the template
+        this.error_text = document.getElementById(this.error_text_id);
         // Progress reports
         if (this.progress.type === 'bar') {
             this.report = (event) => {
@@ -72,6 +75,17 @@ class BrianSimulation {
             else if (e.data.type == 'progress') {
                 if (this.report)
                     this.report(e);
+            } else if (e.data.type === 'error') {
+                console.error('Simulation error:', e.data.message);
+                if (this.run_button)
+                    this.run_button.disabled = false;
+                if (this.error_text) {
+                    this.error_text.textContent = `Simulation failed: ${e.data.message}`;
+                    this.error_text.style.display = 'block';
+                } else {
+                    // Fall back to an alert if the template doesn't define an error element
+                    alert(`Simulation failed: ${e.data.message}`);
+                }
             } else {
                 console.log('Received unknown message type');
                 console.log(e);
@@ -83,6 +97,9 @@ class BrianSimulation {
         // disable run button
         if (this.run_button)
             this.run_button.disabled = true;
+        // clear any previous error message
+        if (this.error_text)
+            this.error_text.style.display = 'none';
         // set progress bar to undetermined state
         if (this.progress.type == 'bar')
             document.getElementById(this.progress.bar_id).removeAttribute('value');
